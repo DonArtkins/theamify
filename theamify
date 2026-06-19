@@ -1,0 +1,560 @@
+#!/usr/bin/env bash
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  theamify — GRUB Theme Manager                                               ║
+# ║  Author  : Don Artkins (Opiyo Don Paul) · github.com/DonArtkins              ║
+# ║  License : MIT                                                               ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
+set -euo pipefail
+
+# ─────────────────────────────────────────────────────────────────────────────
+# VERSION & TOOL NAME
+# ─────────────────────────────────────────────────────────────────────────────
+readonly VERSION="1.0.0"
+readonly TOOL="theamify"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DETECT INSTALL LOCATION (dev clone vs system install)
+# ─────────────────────────────────────────────────────────────────────────────
+_SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
+if [[ -f "${_SCRIPT_DIR}/lib/colors.sh" ]]; then
+    INSTALL_DIR="${_SCRIPT_DIR}"
+elif [[ -f "/usr/local/share/${TOOL}/lib/colors.sh" ]]; then
+    INSTALL_DIR="/usr/local/share/${TOOL}"
+else
+    echo "ERROR: Cannot locate theamify installation. Run install.sh first." >&2
+    exit 1
+fi
+readonly INSTALL_DIR
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATH CONSTANTS
+# ─────────────────────────────────────────────────────────────────────────────
+readonly LIB_DIR="${INSTALL_DIR}/lib"
+readonly CONFIG_DIR="${INSTALL_DIR}/config"
+readonly THEMES_CACHE_DIR="${INSTALL_DIR}/themes"
+readonly REPO_CACHE_DIR="${INSTALL_DIR}/.repo_cache"
+readonly THEMES_CONF="${CONFIG_DIR}/themes.conf"
+readonly GRUB_CFG="/etc/default/grub"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GLOBAL FLAGS
+# ─────────────────────────────────────────────────────────────────────────────
+OPT_YES=false
+OPT_QUIET=false
+OPT_VERBOSE=false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SOURCE LIBRARIES
+# ─────────────────────────────────────────────────────────────────────────────
+# shellcheck source=lib/colors.sh
+source "${LIB_DIR}/colors.sh"
+# shellcheck source=lib/utils.sh
+source "${LIB_DIR}/utils.sh"
+# shellcheck source=lib/grub.sh
+source "${LIB_DIR}/grub.sh"
+# shellcheck source=lib/themes.sh
+source "${LIB_DIR}/themes.sh"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# VALIDATE REGISTRY
+# ─────────────────────────────────────────────────────────────────────────────
+[[ -f "${THEMES_CONF}" ]] || {
+    echo "ERROR: Theme registry missing: ${THEMES_CONF}" >&2
+    echo "       Re-run install.sh to restore." >&2
+    exit 1
+}
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  COMMAND: help
+# ═════════════════════════════════════════════════════════════════════════════
+cmd_help() {
+    print_banner
+    echo -e "${C_TITLE}USAGE${RESET}"
+    echo -e "  ${BOLD_WHITE}${TOOL}${RESET} ${C_INFO}[COMMAND]${RESET} ${C_DIM}[OPTIONS]${RESET}\n"
+
+    echo -e "${C_TITLE}COMMANDS${RESET}"
+    _help_row "list"              "List all themes with status"
+    _help_row "info <name>"       "Show full details for a theme"
+    _help_row "get <name>"        "Download & cache a theme"
+    _help_row "get --all"         "Download every theme"
+    _help_row "use <name>"        "Apply theme to GRUB ${C_WARNING}[sudo]${RESET}"
+    _help_row "remove <name>"     "Remove theme from local cache"
+    _help_row "add <github-url>"  "Add a new theme to the registry"
+    _help_row "del <name>"        "Delete theme from registry"
+    _help_row "update"            "Re-download all cached themes"
+    _help_row "update <name>"     "Re-download one theme"
+    _help_row "status"            "Show GRUB & system status"
+    _help_row "open <name>"       "Open theme source page in browser"
+    _help_row "clean"             "Clear the repo clone cache"
+    _help_row "help"              "Show this help screen"
+    _help_row "version"           "Print version"
+
+    echo -e "\n${C_TITLE}OPTIONS${RESET}"
+    _help_row "-y, --yes"    "Auto-confirm all prompts"
+    _help_row "-q, --quiet"  "Suppress non-essential output"
+    _help_row "-v, --verbose" "Verbose output"
+    _help_row "--no-color"   "Disable ANSI colors"
+
+    echo -e "\n${C_DIM}  (no command) → launches the interactive TUI menu${RESET}\n"
+}
+_help_row() { printf "  ${C_HIGHLIGHT}%-22s${RESET} ${C_DIM}%b${RESET}\n" "${1}" "${2}"; }
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  COMMAND: list
+# ═════════════════════════════════════════════════════════════════════════════
+cmd_list() {
+    local active
+    active="$(grub_get_active_theme)"
+    local total=0 cached=0
+
+    print_banner
+    print_box_title " 🎨  GRUB THEME REGISTRY "
+    echo
+
+    printf "  ${BOLD_WHITE}%-4s  %-22s  %-14s  %-38s  %s${RESET}\n" \
+        "#" "NAME" "STATUS" "DESCRIPTION" "TAGS"
+    print_rule "─"
+
+    local idx=0
+    while IFS='|' read -r name _ _ desc source tags; do
+        [[ "${name}" =~ ^[[:space:]]*$ || "${name}" =~ ^# ]] && continue
+        (( ++idx )); (( ++total ))
+
+        local status="remote"
+        [[ -d "${THEMES_CACHE_DIR}/${name}" ]] && status="cached" && (( ++cached ))
+        [[ "${name}" == "${active}" ]]          && status="active"
+
+        printf "  ${C_NUM}%3d${RESET}  %-22s  %-14b  ${C_DIM}%-38.38s${RESET}  ${C_TAG}%s${RESET}\n" \
+            "${idx}" \
+            "${BOLD_WHITE}${name}${RESET}" \
+            "$(print_status "${status}")" \
+            "${desc}" \
+            "$(echo "${tags}" | tr ',' ' ' | awk '{for(i=1;i<=NF&&i<=3;i++) printf "#"$i" "; if(NF>3) printf "..."}')"
+    done < <(parse_conf)
+
+    echo
+    print_rule
+    echo -e "  ${C_DIM}Registry: ${C_NUM}${total}${RESET}  ${C_DIM}themes  ·  Cached: ${C_ACTIVE}${cached}${RESET}  ${C_DIM}·  Active: ${C_ACTIVE}${active:-none}${RESET}"
+    echo -e "  ${C_DIM}Run ${C_CMD}${TOOL} info <name>${RESET}${C_DIM} for details  ·  ${C_CMD}sudo ${TOOL} use <name>${RESET}${C_DIM} to apply${RESET}"
+    echo
+}
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  COMMAND: info
+# ═════════════════════════════════════════════════════════════════════════════
+cmd_info() {
+    local name="${1:-}"
+    [[ -z "${name}" ]] && { print_error "Usage: ${TOOL} info <name>"; exit 1; }
+
+    local line
+    line="$(theme_get_entry "${name}")" || {
+        print_error "Theme '${name}' not found in registry."
+        print_info "Run '${TOOL} list' to see all themes."
+        exit 1
+    }
+
+    IFS='|' read -r t_name t_url t_sub t_desc t_source t_tags <<< "${line}"
+
+    local active; active="$(grub_get_active_theme)"
+    local cached="${THEMES_CACHE_DIR}/${t_name}"
+    local status="remote"
+    [[ -d "${cached}" ]]          && status="cached"
+    [[ "${t_name}" == "${active}" ]] && status="active"
+
+    echo
+    print_box_title " 🎨  ${t_name} "
+    echo
+
+    print_kv "Name"        "${BOLD_WHITE}${t_name}${RESET}"
+    print_kv "Status"      "$(print_status "${status}")"
+    print_kv "Description" "${t_desc}"
+    print_kv "Tags"        "${C_TAG}${t_tags//,/ • }${RESET}"
+    print_kv "Repository"  "${C_LINK}${t_url}${RESET}"
+    print_kv "Source Page" "${C_LINK}${t_source}${RESET}"
+    [[ "${t_sub}" != "." ]] && print_kv "Subdir" "${C_DIM}${t_sub}${RESET}"
+
+    if [[ -d "${cached}" ]]; then
+        print_kv "Local Cache" "${C_DIM}${cached}${RESET}"
+        local txt
+        txt="$(find_theme_txt "${cached}")" && print_kv "theme.txt" "${C_DIM}${txt}${RESET}" || true
+        # Preview via chafa
+        if command -v chafa &>/dev/null; then
+            local img
+            img="$(find "${cached}" -maxdepth 3 \( -name "*.png" -o -name "*.jpg" \) \
+                   -not -path "*/.git/*" 2>/dev/null | sort | head -1 || true)"
+            if [[ -n "${img}" ]]; then
+                echo -e "\n${C_SECTION}  Preview:${RESET}"
+                chafa --size 60x18 "${img}" 2>/dev/null || true
+            fi
+        fi
+    fi
+
+    echo
+    echo -e "  ${C_DIM}Quick actions:${RESET}"
+    if [[ "${status}" == "remote" ]]; then
+        echo -e "    ${C_CMD}${TOOL} get ${t_name}${RESET}  — download"
+    else
+        echo -e "    ${C_CMD}sudo ${TOOL} use ${t_name}${RESET}    — apply to GRUB"
+        echo -e "    ${C_CMD}${TOOL} remove ${t_name}${RESET}      — clear cache"
+        echo -e "    ${C_CMD}${TOOL} update ${t_name}${RESET}      — re-download"
+    fi
+    echo -e "    ${C_CMD}${TOOL} open ${t_name}${RESET}        — open in browser"
+    echo
+}
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  COMMAND: get
+# ═════════════════════════════════════════════════════════════════════════════
+cmd_get() {
+    local target="${1:-}"
+    [[ -z "${target}" ]] && { print_error "Usage: ${TOOL} get <name>|--all"; exit 1; }
+
+    if [[ "${target}" == "--all" ]]; then
+        print_section "Downloading All Themes"
+        local total=0 ok=0
+        while IFS='|' read -r t_name _; do
+            (( ++total ))
+            echo; theme_download "${t_name}" && (( ++ok )) || true
+        done < <(parse_conf)
+        echo
+        print_success "Downloaded ${ok}/${total} themes."
+        return
+    fi
+
+    theme_download "${target}"
+}
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  COMMAND: use  (needs root)
+# ═════════════════════════════════════════════════════════════════════════════
+cmd_use() {
+    local name="${1:-}"
+    [[ -z "${name}" ]] && { print_error "Usage: sudo ${TOOL} use <name>"; exit 1; }
+
+    require_root "${TOOL} use"
+    theme_get_entry "${name}" &>/dev/null || {
+        print_error "Theme '${name}' not found in registry."
+        print_info "Run '${TOOL} list' to see available themes."
+        exit 1
+    }
+
+    # Auto-download if not cached
+    if [[ ! -d "${THEMES_CACHE_DIR}/${name}" ]]; then
+        print_warning "Theme '${name}' is not cached. Downloading now..."
+        echo
+        theme_download "${name}"
+    fi
+
+    grub_apply_theme "${name}"
+}
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  COMMAND: remove
+# ═════════════════════════════════════════════════════════════════════════════
+cmd_remove() {
+    local name="${1:-}"
+    [[ -z "${name}" ]] && { print_error "Usage: ${TOOL} remove <name>"; exit 1; }
+    theme_remove_cache "${name}"
+}
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  COMMAND: add
+# ═════════════════════════════════════════════════════════════════════════════
+cmd_add() {
+    local url="${1:-}"
+    [[ -z "${url}" ]] && { print_error "Usage: ${TOOL} add <github-url>"; exit 1; }
+    theme_add_to_registry "${url}"
+}
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  COMMAND: del
+# ═════════════════════════════════════════════════════════════════════════════
+cmd_del() {
+    local name="${1:-}"
+    [[ -z "${name}" ]] && { print_error "Usage: ${TOOL} del <name>"; exit 1; }
+    theme_delete_from_registry "${name}"
+}
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  COMMAND: update
+# ═════════════════════════════════════════════════════════════════════════════
+cmd_update() {
+    local name="${1:-}"
+
+    if [[ -z "${name}" ]]; then
+        print_section "Updating All Cached Themes"
+        local updated=0
+        while IFS='|' read -r t_name _; do
+            [[ -d "${THEMES_CACHE_DIR}/${t_name}" ]] || continue
+            echo; theme_download "${t_name}" --force && (( ++updated )) || true
+        done < <(parse_conf)
+        echo
+        if (( updated == 0 )); then
+            print_info "No cached themes found. Run '${TOOL} get --all' first."
+        else
+            print_success "Updated ${updated} theme(s)."
+        fi
+    else
+        theme_download "${name}" --force
+    fi
+}
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  COMMAND: status
+# ═════════════════════════════════════════════════════════════════════════════
+cmd_status() {
+    echo
+    print_box_title " ⚙  SYSTEM STATUS "
+    echo
+
+    print_section "GRUB"
+    local grub_dir; grub_dir="$(grub_detect_dir)"
+    local active;   active="$(grub_get_active_theme)"
+    print_kv "Themes dir"    "${C_DIM}${grub_dir}${RESET}"
+    print_kv "Active theme"  "${C_ACTIVE}${active:-none}${RESET}"
+    local timeout
+    timeout="$(grep -E '^GRUB_TIMEOUT=' "${GRUB_CFG}" 2>/dev/null | cut -d= -f2 | tr -d '"' || echo 'not set')"
+    print_kv "Timeout"       "${timeout}s"
+
+    print_section "Dependencies"
+    local required=("git")
+    local optional=("wget" "curl" "chafa" "xdg-open")
+    local grub_cmds=("update-grub" "grub-mkconfig" "grub2-mkconfig")
+    for dep in "${required[@]}"; do
+        _dep_row "${dep}" "required"
+    done
+    for dep in "${optional[@]}"; do
+        _dep_row "${dep}" "optional"
+    done
+    for dep in "${grub_cmds[@]}"; do
+        _dep_row "${dep}" "grub"
+    done
+
+    print_section "Theme Cache"
+    local total=0 cached=0
+    while IFS='|' read -r t_name _; do
+        (( ++total ))
+        [[ -d "${THEMES_CACHE_DIR}/${t_name}" ]] && (( ++cached ))
+    done < <(parse_conf)
+    print_kv "Registry"   "${total} themes"
+    print_kv "Cached"     "${C_ACTIVE}${cached}${RESET} / ${total}"
+    print_kv "Cache dir"  "${C_DIM}${THEMES_CACHE_DIR}${RESET}"
+    print_kv "Repo cache" "${C_DIM}${REPO_CACHE_DIR}${RESET}"
+    echo
+}
+_dep_row() {
+    local dep="${1}" kind="${2}"
+    if command -v "${dep}" &>/dev/null; then
+        printf "  ${C_SUCCESS}✓${RESET} %-22s ${C_DIM}%s${RESET}\n" "${dep}" "$(command -v "${dep}")"
+    else
+        case "${kind}" in
+            required) printf "  ${C_ERROR}✗${RESET} %-22s ${C_ERROR}MISSING — required${RESET}\n" "${dep}" ;;
+            optional) printf "  ${C_DIM}○${RESET} %-22s ${C_DIM}not found (optional)${RESET}\n" "${dep}" ;;
+            grub)     printf "  ${C_DIM}○${RESET} %-22s ${C_DIM}not found${RESET}\n" "${dep}" ;;
+        esac
+    fi
+}
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  COMMAND: open
+# ═════════════════════════════════════════════════════════════════════════════
+cmd_open() {
+    local name="${1:-}"
+    [[ -z "${name}" ]] && { print_error "Usage: ${TOOL} open <name>"; exit 1; }
+
+    local line
+    line="$(theme_get_entry "${name}")" || {
+        print_error "Theme '${name}' not found."
+        exit 1
+    }
+    local t_source
+    t_source="$(echo "${line}" | cut -d'|' -f5)"
+
+    if [[ -z "${t_source}" || "${t_source}" == "none" ]]; then
+        print_warning "No source URL for theme '${name}'."
+        return
+    fi
+
+    open_url "${t_source}"
+}
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  COMMAND: clean
+# ═════════════════════════════════════════════════════════════════════════════
+cmd_clean() {
+    if [[ -d "${REPO_CACHE_DIR}" ]]; then
+        local size; size="$(du -sh "${REPO_CACHE_DIR}" 2>/dev/null | cut -f1)"
+        print_warning "This will delete the repo clone cache (${size})."
+        if confirm "Clear repo cache?"; then
+            rm -rf "${REPO_CACHE_DIR}"
+            mkdir -p "${REPO_CACHE_DIR}"
+            print_success "Repo cache cleared."
+        fi
+    else
+        print_info "Repo cache is already empty."
+    fi
+}
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  INTERACTIVE MENU (TUI)
+# ═════════════════════════════════════════════════════════════════════════════
+cmd_interactive() {
+    while true; do
+        clear
+        print_banner
+
+        local active; active="$(grub_get_active_theme)"
+        local total=0 cached=0
+        while IFS='|' read -r t _; do
+            (( ++total ))
+            [[ -d "${THEMES_CACHE_DIR}/${t}" ]] && (( ++cached ))
+        done < <(parse_conf)
+
+        echo -e "  ${C_DIM}Active theme :${RESET}  ${C_ACTIVE}${active:-none}${RESET}"
+        echo -e "  ${C_DIM}Themes cached:${RESET}  ${C_INFO}${cached}${RESET}${C_DIM}/${total}${RESET}"
+        echo
+        print_rule
+        echo
+        printf "  ${C_NUM}[1]${RESET} %-32s${C_NUM}[5]${RESET} %s\n" \
+            "${C_HIGHLIGHT}List All Themes${RESET}" \
+            "${C_HIGHLIGHT}Add New Theme${RESET}"
+        printf "  ${C_NUM}[2]${RESET} %-32s${C_NUM}[6]${RESET} %s\n" \
+            "${C_HIGHLIGHT}Browse & Apply Theme${RESET}" \
+            "${C_HIGHLIGHT}Delete Theme from Registry${RESET}"
+        printf "  ${C_NUM}[3]${RESET} %-32s${C_NUM}[7]${RESET} %s\n" \
+            "${C_HIGHLIGHT}Download All Themes${RESET}" \
+            "${C_HIGHLIGHT}System Status${RESET}"
+        printf "  ${C_NUM}[4]${RESET} %-32s${C_NUM}[8]${RESET} %s\n" \
+            "${C_HIGHLIGHT}Update Cached Themes${RESET}" \
+            "${C_HIGHLIGHT}Clean Repo Cache${RESET}"
+        echo
+        echo -e "  ${C_NUM}[q]${RESET} ${C_DIM}Quit${RESET}"
+        echo
+        print_rule
+        echo
+        echo -ne "  ${C_PROMPT}Choice:${RESET} "
+        read -r choice
+        echo
+
+        case "${choice}" in
+            1) cmd_list; _pause ;;
+            2) _interactive_apply ;;
+            3) cmd_get "--all"; _pause ;;
+            4) cmd_update; _pause ;;
+            5)
+                echo -ne "  ${C_PROMPT}GitHub URL:${RESET} "; read -r url
+                cmd_add "${url}"; _pause
+                ;;
+            6)
+                echo -ne "  ${C_PROMPT}Theme name to delete:${RESET} "; read -r nm
+                cmd_del "${nm}"; _pause
+                ;;
+            7) cmd_status; _pause ;;
+            8) cmd_clean; _pause ;;
+            q|Q|quit|exit)
+                echo -e "\n${C_DIM}  Goodbye!${RESET}\n"
+                exit 0 ;;
+            *)
+                print_warning "Invalid choice: '${choice}'"
+                sleep 1 ;;
+        esac
+    done
+}
+
+_interactive_apply() {
+    clear
+    print_box_title " 🎨  Browse & Apply Theme "
+    echo
+
+    local active; active="$(grub_get_active_theme)"
+    local -a names=()
+    local idx=0
+
+    while IFS='|' read -r t_name _ _ t_desc _ t_tags; do
+        names+=("${t_name}")
+        (( ++idx ))
+        local status="remote"
+        [[ -d "${THEMES_CACHE_DIR}/${t_name}" ]] && status="cached"
+        [[ "${t_name}" == "${active}" ]]          && status="active"
+
+        printf "  ${C_NUM}%3d${RESET}  %-22s  %-14b  ${C_DIM}%-36.36s  %s${RESET}\n" \
+            "${idx}" "${BOLD_WHITE}${t_name}${RESET}" "$(print_status "${status}")" \
+            "${t_desc}" "$(echo "${t_tags}" | cut -d',' -f1-2 | tr ',' ' ')"
+    done < <(parse_conf)
+
+    echo
+    echo -ne "  ${C_PROMPT}Enter number (or 'q' to cancel):${RESET} "
+    read -r choice
+
+    [[ "${choice}" =~ ^[qQ]$ ]] && return
+
+    if ! [[ "${choice}" =~ ^[0-9]+$ ]] || \
+       (( choice < 1 || choice > ${#names[@]} )); then
+        print_error "Invalid selection."
+        _pause; return
+    fi
+
+    local selected="${names[$((choice-1))]}"
+    echo
+    print_info "Selected: ${BOLD_WHITE}${selected}${RESET}"
+    confirm "Apply theme '${selected}' to GRUB?" || { print_info "Cancelled."; _pause; return; }
+
+    if [[ "${EUID}" -ne 0 ]]; then
+        print_warning "Root is required. Re-running with sudo..."
+        sudo "${BASH_SOURCE[0]}" use "${selected}"
+    else
+        cmd_use "${selected}"
+    fi
+    _pause
+}
+
+_pause() {
+    echo
+    echo -ne "${C_DIM}  Press [Enter] to continue...${RESET}"
+    read -r
+}
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  MAIN — argument router
+# ═════════════════════════════════════════════════════════════════════════════
+main() {
+    # ── strip global flags ──────────────────────────────────────────────────
+    local args=()
+    for arg in "$@"; do
+        case "${arg}" in
+            -y|--yes)      OPT_YES=true ;;
+            -q|--quiet)    OPT_QUIET=true ;;
+            -v|--verbose)  OPT_VERBOSE=true ;;
+            --no-color)    export NO_COLOR=1 ;;
+            *)             args+=("${arg}") ;;
+        esac
+    done
+    set -- "${args[@]+"${args[@]}"}"
+
+    local cmd="${1:-}"
+    (( $# > 0 )) && shift || true
+
+    case "${cmd}" in
+        "")                     cmd_interactive ;;
+        list|ls)                cmd_list ;;
+        info|show)              cmd_info "${1:-}" ;;
+        get|fetch|download)     cmd_get  "${1:-}" ;;
+        use|apply|set)          cmd_use  "${1:-}" ;;
+        remove|rm|uncache)      cmd_remove "${1:-}" ;;
+        add)                    cmd_add "${1:-}" ;;
+        del|delete)             cmd_del "${1:-}" ;;
+        update)                 cmd_update "${1:-}" ;;
+        status|check)           cmd_status ;;
+        open|browse)            cmd_open "${1:-}" ;;
+        clean|purge-cache)      cmd_clean ;;
+        help|-h|--help)         cmd_help ;;
+        version|-V|--version)   echo "${TOOL} v${VERSION}" ;;
+        *)
+            print_error "Unknown command: '${cmd}'"
+            echo -e "  ${C_DIM}Run ${C_CMD}${TOOL} help${RESET}${C_DIM} to see all commands.${RESET}\n"
+            exit 1 ;;
+    esac
+}
+
+main "$@"
