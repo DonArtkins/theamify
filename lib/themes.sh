@@ -3,14 +3,12 @@
 # lib/themes.sh - Theme Registry CRUD & Download Logic
 # -----------------------------------------------------------------------------
 
-# -- Parse registry, yield data lines (skip blanks + comments) ----------------
 parse_conf() {
     grep -v '^[[:space:]]*$' "${THEMES_CONF}" 2>/dev/null \
         | grep -v '^#' \
         || true
 }
 
-# -- Return the registry line for a given name ---------------------------------
 theme_get_entry() {
     local name="${1}"
     local line
@@ -19,23 +17,6 @@ theme_get_entry() {
     echo "${line}"
 }
 
-# ==============================================================================
-#  Build a theme via the repo's own generate.sh
-#
-#  Triggered when SUBDIR uses the form:  generate:<args for generate.sh>
-#  e.g.  generate:-t mountain -p window -i left -c dark -s 1080p
-#
-#  Some upstream theme repos (e.g. vinceliuice/Elegant-grub2-themes) commit
-#  no pre-built per-variant folder - theme.txt only exists after their own
-#  build step runs. theamify always supplies "-d <build_dir>" itself; the
-#  rest of <args> is passed through verbatim, so the registry entry only
-#  needs to encode the variant-selecting flags (don't include -d in <args>).
-#  Contract this depends on: the upstream script accepts a -d/--dest-style
-#  output flag and writes exactly one result directory per invocation. That
-#  holds for Elegant-grub2-themes; it won't hold for every repo with a
-#  generate.sh, so don't assume it works without checking the upstream
-#  script first.
-# ==============================================================================
 theme_generate_subdir() {
     local name="${1}" repo_path="${2}" gen_args="${3}"
 
@@ -50,14 +31,11 @@ theme_generate_subdir() {
     rm -rf "${build_dir}"
     mkdir -p "${build_dir}"
 
-    print_step "Running: generate.sh -d <build_dir> ${gen_args}"
-    # gen_args is intentionally unquoted - it's a string of separate CLI
-    # flags ("-t mountain -p window ...") that must word-split, not a
-    # single value.
+    print_step "Running: generate.sh -d <build_dir> ${gen_args}" >&2
     # shellcheck disable=SC2086
-    if ! bash "${gen_script}" -d "${build_dir}" ${gen_args}; then
+    if ! bash "${gen_script}" -d "${build_dir}" ${gen_args} >&2; then
         print_error "generate.sh failed for '${name}'."
-        print_step "Reproduce manually: cd ${repo_path} && ./generate.sh -d <dir> ${gen_args}"
+        print_step "Reproduce manually: cd ${repo_path} && ./generate.sh -d <dir> ${gen_args}" >&2
         return 1
     fi
 
@@ -71,16 +49,12 @@ theme_generate_subdir() {
         return 1
     fi
     if (( ${#produced[@]} > 1 )); then
-        print_warning "generate.sh produced ${#produced[@]} directories; using: $(basename "${produced[0]}")"
+        print_warning "generate.sh produced ${#produced[@]} directories; using: $(basename "${produced[0]}")" >&2
     fi
 
     echo "${produced[0]}"
 }
 
-# ==============================================================================
-#  Download / cache a theme
-#  Usage: theme_download <name> [--force]
-# ==============================================================================
 theme_download() {
     local name="${1}"
     local force="${2:-}"
@@ -95,7 +69,6 @@ theme_download() {
     IFS='|' read -r t_name t_url t_sub t_desc t_source t_tags <<< "${line}"
     local dest="${THEMES_CACHE_DIR}/${t_name}"
 
-    # -- Already cached? -------------------------------------------------------
     if [[ -d "${dest}" && "${force}" != "--force" ]]; then
         print_info "Theme '${t_name}' is already cached."
         print_step "Re-download with: theamify update ${t_name}"
@@ -109,7 +82,6 @@ theme_download() {
 
     check_deps_required
 
-    # -- Step 1: Clone or reuse repo -------------------------------------------
     print_step "[1/4] Fetching repository..."
     local force_clone="false"
     [[ "${force}" == "--force" ]] && force_clone="true"
@@ -118,7 +90,6 @@ theme_download() {
     repo_path="$(get_repo "${t_url}" "${force_clone}")" || return 1
     print_success "Repository ready."
 
-    # -- Step 2: Locate theme subdir -------------------------------------------
     print_step "[2/4] Locating theme files..."
 
     local src_path
@@ -129,7 +100,6 @@ theme_download() {
     else
         src_path="${repo_path}/${t_sub}"
         if [[ ! -d "${src_path}" ]]; then
-            # Case-insensitive fallback search
             local found_dir
             found_dir="$(find "${repo_path}" -maxdepth 4 -type d \
                          -iname "$(basename "${t_sub}")" 2>/dev/null | head -1 || true)"
@@ -149,16 +119,13 @@ theme_download() {
     fi
     print_success "Source path: ${src_path}"
 
-    # -- Step 3: Copy to theme cache -------------------------------------------
     print_step "[3/4] Caching theme..."
     [[ -d "${dest}" ]] && rm -rf "${dest}"
     mkdir -p "${dest}"
     cp -r "${src_path}/." "${dest}/"
 
-    # Strip git artifacts
     rm -rf "${dest}/.git" "${dest}/.github" 2>/dev/null || true
 
-    # Save a preview image reference (first PNG/JPG found)
     local preview_img
     preview_img="$(find "${dest}" -maxdepth 3 \
                    \( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" \) \
@@ -170,7 +137,6 @@ theme_download() {
 
     print_success "Cached: ${dest}"
 
-    # -- Step 4: Validate theme.txt --------------------------------------------
     print_step "[4/4] Validating..."
     local theme_txt
     theme_txt="$(find_theme_txt "${dest}")" || {
@@ -182,7 +148,7 @@ theme_download() {
         print_dim "  ${t_url}"
         print_dim "  Cache is saved at: ${dest}"
         echo
-        return 0
+        return 1
     }
 
     print_success "Valid theme - theme.txt: ${theme_txt}"
@@ -192,7 +158,6 @@ theme_download() {
     echo
 }
 
-# -- Remove theme from local cache (registry entry kept) -----------------------
 theme_remove_cache() {
     local name="${1}"
 
@@ -221,14 +186,12 @@ theme_remove_cache() {
     print_dim "  Registry entry kept. Re-download: theamify get ${name}"
 }
 
-# -- Add a new theme to registry (interactive wizard) -------------------------
 theme_add_to_registry() {
     local url="${1}"
 
     print_section "Add New Theme"
     echo -e "  ${C_DIM}URL: ${url}${RESET}"
 
-    # Validate URL
     if ! echo "${url}" | grep -qE '^https?://(github|gitlab)\.com/'; then
         print_error "URL must be a GitHub or GitLab repository URL."
         return 1
@@ -242,7 +205,6 @@ theme_add_to_registry() {
     read -r name
     name="${name:-${default_name}}"
 
-    # Duplicate check
     if parse_conf | grep -q "^${name}|"; then
         print_error "A theme named '${name}' already exists."
         return 1
@@ -282,7 +244,6 @@ theme_add_to_registry() {
     echo
 }
 
-# -- Delete theme from registry (and its cache) -------------------------------
 theme_delete_from_registry() {
     local name="${1}"
 
@@ -309,11 +270,9 @@ theme_delete_from_registry() {
         return 0
     }
 
-    # Remove cache if present
     local dest="${THEMES_CACHE_DIR}/${name}"
     [[ -d "${dest}" ]] && rm -rf "${dest}" && print_dim "  Cache removed: ${dest}"
 
-    # Remove from conf file
     local tmp
     tmp="$(mktemp)"
     grep -v "^${name}|" "${THEMES_CONF}" > "${tmp}"

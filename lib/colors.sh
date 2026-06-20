@@ -2,16 +2,7 @@
 # -----------------------------------------------------------------------------
 # lib/colors.sh - ANSI Colors, Print Functions & UI Components
 # -----------------------------------------------------------------------------
-# Color codes are defined with ANSI-C quoting ($'...'), which stores the real
-# ESC byte in each variable at assignment time. Earlier versions stored the
-# literal text "\033[...]" instead, which only became a real escape sequence
-# when passed through a format string that printf itself escape-processes.
-# printf does NOT escape-process %s arguments - only %b does - so any color
-# variable substituted into a %s slot printed as the literal four characters
-# \033 instead of color. Storing the real byte up front removes the failure
-# mode entirely: printf, echo -e, and plain echo all emit it correctly.
 
-# shellcheck disable=SC2034  # full palette kept for completeness; not every entry is consumed here
 RESET=$'\033[0m';    BOLD=$'\033[1m';  DIM=$'\033[2m'
 ITALIC=$'\033[3m';   UNDERLINE=$'\033[4m'
 
@@ -31,7 +22,6 @@ BG_BLACK=$'\033[40m';  BG_RED=$'\033[41m';  BG_GREEN=$'\033[42m'
 BG_YELLOW=$'\033[43m'; BG_BLUE=$'\033[44m'; BG_MAGENTA=$'\033[45m'
 BG_CYAN=$'\033[46m';   BG_WHITE=$'\033[47m'
 
-# -- Semantic aliases ----------------------------------------------------------
 C_TITLE="${BOLD_CYAN}"
 C_SUBTITLE="${BOLD_MAGENTA}"
 C_SECTION="${BOLD_YELLOW}"
@@ -51,7 +41,6 @@ C_TAG="${BRIGHT_MAGENTA}"
 C_NUM="${BOLD_YELLOW}"
 C_BORDER="${BOLD_BLUE}"
 
-# -- Strip colors when NO_COLOR is set or stdout is not a terminal -------------
 if [[ -n "${NO_COLOR:-}" ]] || [[ ! -t 1 ]]; then
     RESET="" BOLD="" DIM="" ITALIC="" UNDERLINE=""
     BLACK="" RED="" GREEN="" YELLOW="" BLUE="" MAGENTA="" CYAN="" WHITE=""
@@ -67,9 +56,6 @@ if [[ -n "${NO_COLOR:-}" ]] || [[ ! -t 1 ]]; then
     C_TAG="" C_NUM="" C_BORDER=""
 fi
 
-# -- Print helpers -------------------------------------------------------------
-# Plain bracket tags instead of glyph icons - identical output across every
-# locale, font, and non-UTF-8 terminal, no fallback "tofu" boxes possible.
 print_title()   { echo -e "${C_TITLE}${*}${RESET}"; }
 print_section() { echo -e "\n${C_SECTION}== ${*}${RESET}"; }
 print_success() { echo -e "${C_SUCCESS}[OK]${RESET} ${*}"; }
@@ -82,16 +68,12 @@ print_cmd()     { echo -e "${C_CMD}  \$ ${*}${RESET}"; }
 print_link()    { echo -e "${C_LINK}${*}${RESET}"; }
 print_bold()    { echo -e "${BOLD_WHITE}${*}${RESET}"; }
 
-# -- UI components -------------------------------------------------------------
 _term_width() {
     local w; w="$(tput cols 2>/dev/null || echo 80)"
     (( w > 100 )) && w=100
     echo "${w}"
 }
 
-# ASCII rule. Default char is '-' so it always renders, regardless of locale
-# or font - box-drawing characters (- = =) fall back to "tofu" glyphs on
-# terminals/fonts without full Unicode coverage.
 print_rule() {
     local char="${1:--}"
     local w; w="$(_term_width)"
@@ -132,9 +114,6 @@ print_status() {
     esac
 }
 
-# Compact, non-decorative header - no block-letter logo. A large multi-line
-# ASCII-art wordmark is the kind of padding the project's style guide bans
-# under "no decorative ASCII art"; this still reads as a clear product banner.
 print_banner() {
     print_rule "="
     echo -e "  ${C_TITLE}${BOLD}theamify${RESET} ${C_DIM}v${VERSION:-1.0.0}${RESET} ${C_DIM}- GRUB Theme Manager${RESET}"
@@ -143,10 +122,6 @@ print_banner() {
     echo
 }
 
-# -- Spinner -------------------------------------------------------------------
-# Classic 4-frame ASCII spinner - renders identically everywhere; the braille
-# block glyphs it replaces require a Unicode-complete monospace font.
-# shellcheck disable=SC1003
 SPINNER_FRAMES=('|' '/' '-' '\')
 SPINNER_PID=""
 
@@ -155,7 +130,10 @@ spinner_start() {
     (
         local i=0
         while true; do
-            printf '\r  %s%s%s %s...' "${C_STEP}" "${SPINNER_FRAMES[$((i % 4))]}" "${RESET}" "${msg}"
+            # >&2 is mandatory: get_repo() and other functions run this while
+            # their own stdout is being captured via $(...). Anything the
+            # spinner writes to fd1 lands inside that captured string.
+            printf '\r  %s%s%s %s...' "${C_STEP}" "${SPINNER_FRAMES[$((i % 4))]}" "${RESET}" "${msg}" >&2
             sleep 0.1
             i=$(( i + 1 ))
         done
@@ -168,6 +146,6 @@ spinner_stop() {
     if [[ -n "${SPINNER_PID:-}" ]]; then
         kill "${SPINNER_PID}" 2>/dev/null || true
         SPINNER_PID=""
-        printf '\r\033[K'
+        printf '\r\033[K' >&2
     fi
 }
