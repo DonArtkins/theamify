@@ -95,10 +95,23 @@ sudo apt install chafa
 | Zzz-GRUB         | Chill / Cat     | [gnome-look](https://www.gnome-look.org/p/2354136) |
 | Star-Rail        | Gaming / Anime  | [gnome-look](https://www.gnome-look.org/p/2076542) |
 
-> **Elegant themes note:** All 4 Elegant themes come from the same repo
-> (`vinceliuice/Elegant-grub2-themes`). If the subdir isn't found automatically,
-> inspect the repo after download (`theamify get Elegant-Mountain`) and update
-> the SUBDIR field in `config/themes.conf` accordingly.
+> **Elegant themes note:** All 4 Elegant entries point at the same repo
+> (`vinceliuice/Elegant-grub2-themes`). Unlike the rest of the registry, that
+> repo ships no pre-built theme folder - `backgrounds/`, `common/`, and
+> `config/` are raw assets, and `theme.txt` is only produced at build time by
+> `install.sh` (writes straight to `/boot/grub`, needs root) or `generate.sh`
+> (builds an `Elegant-<theme>-<type>-<side>-<color>` folder into a directory
+> you choose, no root needed). theamify doesn't drive either script yet, so
+> `theamify get Elegant-Mountain` will clone but fail validation - that's
+> expected. Until generate.sh support is wired in, build the variant by hand:
+>
+> ```bash
+> cd .repo_cache/vinceliuice__Elegant-grub2-themes   # after `theamify get`
+> ./generate.sh -t mountain -p window -i left -c dark -s 1080p -d /tmp/elegant-out
+> ```
+>
+> then copy `/tmp/elegant-out/Elegant-mountain-window-left-dark` into your
+> GRUB themes dir yourself, or just run the upstream `install.sh -b` directly.
 
 ## Add Your Own Theme
 

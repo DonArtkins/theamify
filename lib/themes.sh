@@ -20,6 +20,64 @@ theme_get_entry() {
 }
 
 # ==============================================================================
+#  Build a theme via the repo's own generate.sh
+#
+#  Triggered when SUBDIR uses the form:  generate:<args for generate.sh>
+#  e.g.  generate:-t mountain -p window -i left -c dark -s 1080p
+#
+#  Some upstream theme repos (e.g. vinceliuice/Elegant-grub2-themes) commit
+#  no pre-built per-variant folder - theme.txt only exists after their own
+#  build step runs. theamify always supplies "-d <build_dir>" itself; the
+#  rest of <args> is passed through verbatim, so the registry entry only
+#  needs to encode the variant-selecting flags (don't include -d in <args>).
+#  Contract this depends on: the upstream script accepts a -d/--dest-style
+#  output flag and writes exactly one result directory per invocation. That
+#  holds for Elegant-grub2-themes; it won't hold for every repo with a
+#  generate.sh, so don't assume it works without checking the upstream
+#  script first.
+# ==============================================================================
+theme_generate_subdir() {
+    local name="${1}" repo_path="${2}" gen_args="${3}"
+
+    local gen_script="${repo_path}/generate.sh"
+    if [[ ! -f "${gen_script}" ]]; then
+        print_error "Registry entry '${name}' uses 'generate:' but no"
+        print_error "generate.sh was found at: ${gen_script}"
+        return 1
+    fi
+
+    local build_dir="${REPO_CACHE_DIR}/.build/${name}"
+    rm -rf "${build_dir}"
+    mkdir -p "${build_dir}"
+
+    print_step "Running: generate.sh -d <build_dir> ${gen_args}"
+    # gen_args is intentionally unquoted - it's a string of separate CLI
+    # flags ("-t mountain -p window ...") that must word-split, not a
+    # single value.
+    # shellcheck disable=SC2086
+    if ! bash "${gen_script}" -d "${build_dir}" ${gen_args}; then
+        print_error "generate.sh failed for '${name}'."
+        print_step "Reproduce manually: cd ${repo_path} && ./generate.sh -d <dir> ${gen_args}"
+        return 1
+    fi
+
+    local -a produced=()
+    while IFS= read -r -d '' d; do
+        produced+=("${d}")
+    done < <(find "${build_dir}" -mindepth 1 -maxdepth 1 -type d -print0)
+
+    if (( ${#produced[@]} == 0 )); then
+        print_error "generate.sh ran but produced no output directory in: ${build_dir}"
+        return 1
+    fi
+    if (( ${#produced[@]} > 1 )); then
+        print_warning "generate.sh produced ${#produced[@]} directories; using: $(basename "${produced[0]}")"
+    fi
+
+    echo "${produced[0]}"
+}
+
+# ==============================================================================
 #  Download / cache a theme
 #  Usage: theme_download <name> [--force]
 # ==============================================================================
@@ -64,7 +122,9 @@ theme_download() {
     print_step "[2/4] Locating theme files..."
 
     local src_path
-    if [[ "${t_sub}" == "." ]]; then
+    if [[ "${t_sub}" == generate:* ]]; then
+        src_path="$(theme_generate_subdir "${t_name}" "${repo_path}" "${t_sub#generate:}")" || return 1
+    elif [[ "${t_sub}" == "." ]]; then
         src_path="${repo_path}"
     else
         src_path="${repo_path}/${t_sub}"
@@ -115,7 +175,9 @@ theme_download() {
     local theme_txt
     theme_txt="$(find_theme_txt "${dest}")" || {
         print_warning "No theme.txt found in '${t_name}'."
-        print_dim "  This may be a multi-variant repo (e.g., Elegant series)."
+        print_dim "  This usually means the repo has no static theme folder and"
+        print_dim "  no compatible generate.sh - SUBDIR may need fixing, or the"
+        print_dim "  repo needs a 'generate:<args>' entry (see CONTRIBUTING.md)."
         print_dim "  Check the repo README for instructions:"
         print_dim "  ${t_url}"
         print_dim "  Cache is saved at: ${dest}"
@@ -186,7 +248,7 @@ theme_add_to_registry() {
         return 1
     fi
 
-    echo -ne "  ${C_PROMPT}Subdir within repo${RESET} ${C_DIM}[.]${RESET}: "
+    echo -ne "  ${C_PROMPT}Subdir within repo${RESET} ${C_DIM}[.]${RESET} ${C_DIM}(or 'generate:<args>' if the repo builds via its own generate.sh)${RESET}: "
     read -r subdir
     subdir="${subdir:-.}"
 

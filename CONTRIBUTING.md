@@ -61,8 +61,14 @@ NAME|GITHUB_URL|SUBDIR|DESCRIPTION|SOURCE_URL|TAGS
 ```
 
 - `SUBDIR` is `.` for a repo where the theme lives at the root, or a
-  relative path for a repo with multiple theme variants (see the
-  `Elegant-*` entries for an example).
+  relative path for a repo that ships pre-built theme folders for each
+  variant. This only works if the repo actually commits those folders -
+  if the repo instead *generates* `theme.txt` at build time via its own
+  install/generate script (no static folder exists in a fresh clone), the
+  SUBDIR pattern can't resolve it and the theme needs special-case handling
+  before it'll work with `theamify get`. The `Elegant-*` entries are a
+  known example of this: see the Elegant themes note in `README.md` before
+  using them as a template.
 - `TAGS` is comma-separated, no spaces.
 - Verify the entry resolves before submitting a PR:
   ```bash
@@ -70,8 +76,9 @@ NAME|GITHUB_URL|SUBDIR|DESCRIPTION|SOURCE_URL|TAGS
   ./theamify info <name>
   ```
   `theamify get` should report a valid `theme.txt`. If it can't find one,
-  the `SUBDIR` is wrong or the repo needs a `find`-based fallback - fix the
-  entry, don't paper over the error.
+  the `SUBDIR` is wrong, the repo needs a `find`-based fallback, or (as
+  with the Elegant series) the repo doesn't ship a static subdir at all -
+  fix the entry or flag it as unsupported, don't paper over the error.
 
 ## Before submitting a PR
 
