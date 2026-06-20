@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # -----------------------------------------------------------------------------
-# lib/utils.sh - Utility Functions
+# lib/utils.sh - Utility Functions (ORIGINAL / BUGGY, for reproduction)
 # -----------------------------------------------------------------------------
 
-# -- Root guard ----------------------------------------------------------------
 require_root() {
     local cmd="${1:-this command}"
     if [[ "${EUID}" -ne 0 ]]; then
@@ -13,7 +12,6 @@ require_root() {
     fi
 }
 
-# -- Confirmation prompt -------------------------------------------------------
 confirm() {
     local msg="${1:-Are you sure?}"
     [[ "${OPT_YES:-false}" == "true" ]] && return 0
@@ -22,42 +20,42 @@ confirm() {
     [[ "${ans}" =~ ^[Yy]$ ]]
 }
 
-# -- Check required runtime dependencies --------------------------------------
 check_deps_required() {
     local ok=true
-
     command -v git &>/dev/null || {
         print_error "Missing required dependency: git"
         print_step "Install: sudo apt install git"
         ok=false
     }
-
     if ! command -v wget &>/dev/null && ! command -v curl &>/dev/null; then
         print_error "Need wget or curl for downloading."
         print_step "Install: sudo apt install wget"
         ok=false
     fi
-
     [[ "${ok}" == "true" ]] || exit 1
 }
 
-# -- Git clone (shallow) -------------------------------------------------------
 git_clone() {
     local url="${1}" dest="${2}"
     local args=("--depth=1" "--recurse-submodules" "--quiet")
-
     if [[ "${OPT_VERBOSE:-false}" == "true" ]]; then
-        # remove --quiet for verbose
         args=("--depth=1" "--recurse-submodules")
     fi
-
-    if ! git clone "${args[@]}" "${url}" "${dest}" 2>&1; then
+    # GIT_TERMINAL_PROMPT=0: if the repo is missing/private/renamed, git
+    # normally falls back to an interactive username/password prompt over
+    # HTTPS instead of failing - which hangs a non-interactive batch run
+    # (theamify get --all) forever waiting on stdin. With this set, git
+    # fails fast instead.
+    # >&2 (not 2>&1): git_clone() is called from inside get_repo(), whose
+    # own stdout is captured via $(...) to obtain the repo path. Anything
+    # git writes to fd1 here would silently become part of that captured
+    # string, so we always send it to the terminal directly instead.
+    if ! GIT_TERMINAL_PROMPT=0 git clone "${args[@]}" "${url}" "${dest}" >&2; then
         print_error "git clone failed for: ${url}"
         return 1
     fi
 }
 
-# -- Convert GitHub URL to a safe filesystem ID -------------------------------
 repo_url_to_id() {
     local url="${1}"
     echo "${url}" \
@@ -67,8 +65,6 @@ repo_url_to_id() {
       | sed 's|[^a-zA-Z0-9_-]|_|g'
 }
 
-# -- Clone or return path to cached repo --------------------------------------
-# Usage: repo_path="$(get_repo <url> [force:true])"
 get_repo() {
     local url="${1}"
     local force="${2:-false}"
@@ -87,11 +83,16 @@ get_repo() {
 
     [[ -d "${repo_path}" ]] && rm -rf "${repo_path}"
 
-    print_step "Cloning: ${url}"
+    # This function's stdout is captured by callers via $(...) to get
+    # repo_path back - only the final `echo "${repo_path}"` below may ever
+    # touch fd1. Every status message in between is sent to stderr (>&2)
+    # explicitly so it prints to the terminal instead of getting silently
+    # appended to the returned path.
+    print_step "Cloning: ${url}" >&2
     spinner_start "Downloading"
     if git_clone "${url}" "${repo_path}"; then
         spinner_stop
-        print_success "Repository cloned."
+        print_success "Repository cloned." >&2
     else
         spinner_stop
         print_error "Clone failed: ${url}"
@@ -101,7 +102,6 @@ get_repo() {
     echo "${repo_path}"
 }
 
-# -- Search for theme.txt within a directory (up to 3 levels deep) ------------
 find_theme_txt() {
     local dir="${1}"
     [[ -f "${dir}/theme.txt" ]] && echo "${dir}/theme.txt" && return 0
@@ -111,7 +111,6 @@ find_theme_txt() {
     return 1
 }
 
-# -- Open URL in default browser ----------------------------------------------
 open_url() {
     local url="${1}"
     if command -v xdg-open &>/dev/null; then
@@ -129,10 +128,8 @@ open_url() {
     print_info "Opened in browser."
 }
 
-# -- Verbose log (only prints when -v flag is set) ----------------------------
 log_verbose() {
-    [[ "${OPT_VERBOSE:-false}" == "true" ]] && print_dim "  [verbose] ${*}" || true
+    [[ "${OPT_VERBOSE:-false}" == "true" ]] && print_dim "  [verbose] ${*}" >&2 || true
 }
 
-# -- Safe arithmetic increment (compatible with set -e) -----------------------
 inc() { eval "${1}=$(( ${!1} + 1 ))"; }

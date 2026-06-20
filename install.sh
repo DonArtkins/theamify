@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # -----------------------------------------------------------------------------
 # install.sh - Install theamify system-wide
-# Run as: sudo ./install.sh
+# Run as: sudo ./install.sh [--sync-conf]
 # -----------------------------------------------------------------------------
 
 set -euo pipefail
@@ -10,6 +10,20 @@ readonly TOOL="theamify"
 readonly INSTALL_DIR="/usr/local/share/${TOOL}"
 readonly BIN_LINK="/usr/local/bin/${TOOL}"
 readonly SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# -- Flags ----------------------------------------------------------------
+# --sync-conf / -c : also overwrite the installed config/themes.conf with
+# the one in this checkout. Off by default so a normal user's registry
+# edits (theamify add/del) are never clobbered by a reinstall - but during
+# active development this is usually exactly what you want, since
+# themes.conf changes (like removing a broken entry) otherwise silently
+# never reach the system install.
+SYNC_CONF=false
+for arg in "$@"; do
+    case "${arg}" in
+        --sync-conf|-c) SYNC_CONF=true ;;
+    esac
+done
 
 # Inline colors (libs not loaded yet). ANSI-C quoting ($'...') stores the
 # real ESC byte at assignment time so every print path below works
@@ -77,13 +91,18 @@ cp "${SRC_DIR}/lib/utils.sh"   "${INSTALL_DIR}/lib/"
 cp "${SRC_DIR}/lib/grub.sh"    "${INSTALL_DIR}/lib/"
 cp "${SRC_DIR}/lib/themes.sh"  "${INSTALL_DIR}/lib/"
 
-# Only copy themes.conf if not already present (preserve user edits)
+# Only copy themes.conf if not already present (preserve user edits),
+# unless --sync-conf was passed to force it.
 if [[ ! -f "${INSTALL_DIR}/config/themes.conf" ]]; then
     cp "${SRC_DIR}/config/themes.conf" "${INSTALL_DIR}/config/themes.conf"
     success "Installed fresh themes.conf"
+elif [[ "${SYNC_CONF}" == "true" ]]; then
+    cp "${SRC_DIR}/config/themes.conf" "${INSTALL_DIR}/config/themes.conf"
+    success "themes.conf overwritten (--sync-conf)."
 else
     warning "Existing themes.conf preserved (user data protected)."
-    warning "To reset: cp ${SRC_DIR}/config/themes.conf ${INSTALL_DIR}/config/themes.conf"
+    warning "To sync registry changes from this checkout: sudo ./install.sh --sync-conf"
+    warning "To reset manually: cp ${SRC_DIR}/config/themes.conf ${INSTALL_DIR}/config/themes.conf"
 fi
 
 success "Files copied."

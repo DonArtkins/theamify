@@ -50,6 +50,21 @@ sudo ./install.sh
 After install, `theamify` is available system-wide - run it from any terminal.  
 Only `theamify use` requires `sudo`. All other commands run as a normal user.
 
+### Updating an existing install
+
+`install.sh` deliberately leaves an already-installed `config/themes.conf`
+alone, so your own `add`/`del` edits via `theamify` survive a reinstall.
+That also means a plain `sudo ./install.sh` will **not** pick up registry
+changes from this checkout (new/removed/edited entries) - pass `--sync-conf`
+when you want that:
+
+```bash
+sudo ./install.sh --sync-conf
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md#developing-against-an-existing-install)
+for the full dev-vs-installed workflow.
+
 ## Usage
 
 ```bash
@@ -83,35 +98,19 @@ sudo apt install chafa
 |------------------|-----------------|--------|
 | CyberEXS         | Cyberpunk dark  | [gnome-look](https://www.gnome-look.org/p/1968990) |
 | CyberSynchro     | Cyberpunk teal  | [gnome-look](https://www.gnome-look.org/p/1972621) |
-| Elegant-Mountain | Landscape       | [gnome-look](https://www.gnome-look.org/p/2206121) |
-| Elegant-Forest   | Landscape       | [gnome-look](https://www.gnome-look.org/p/2206111) |
-| Elegant-Mojave   | Desert          | [gnome-look](https://www.gnome-look.org/p/2206118) |
-| Elegant-Wave     | Abstract        | [gnome-look](https://www.gnome-look.org/p/2206122) |
 | Space-Isolation  | Sci-Fi          | [gnome-look](https://www.gnome-look.org/p/2296342) |
 | Kawaii-GRUB      | Anime           | [gnome-look](https://www.gnome-look.org/p/2218890) |
 | Kayoko-Onikata   | Anime / Cat     | [gnome-look](https://www.gnome-look.org/p/2350900) |
 | Matrices         | Abstract tech   | [gnome-look](https://www.gnome-look.org/p/2271298) |
 | Particle         | Abstract        | [gnome-look](https://www.gnome-look.org/p/2269763) |
 | Zzz-GRUB         | Chill / Cat     | [gnome-look](https://www.gnome-look.org/p/2354136) |
-| Star-Rail        | Gaming / Anime  | [gnome-look](https://www.gnome-look.org/p/2076542) |
 
-> **Elegant themes note:** All 4 Elegant entries point at the same repo
-> (`vinceliuice/Elegant-grub2-themes`). Unlike the rest of the registry, that
-> repo ships no pre-built theme folder - `backgrounds/`, `common/`, and
-> `config/` are raw assets, and `theme.txt` is only produced at build time by
-> `install.sh` (writes straight to `/boot/grub`, needs root) or `generate.sh`
-> (builds an `Elegant-<theme>-<type>-<side>-<color>` folder into a directory
-> you choose, no root needed). theamify doesn't drive either script yet, so
-> `theamify get Elegant-Mountain` will clone but fail validation - that's
-> expected. Until generate.sh support is wired in, build the variant by hand:
->
-> ```bash
-> cd .repo_cache/vinceliuice__Elegant-grub2-themes   # after `theamify get`
-> ./generate.sh -t mountain -p window -i left -c dark -s 1080p -d /tmp/elegant-out
-> ```
->
-> then copy `/tmp/elegant-out/Elegant-mountain-window-left-dark` into your
-> GRUB themes dir yourself, or just run the upstream `install.sh -b` directly.
+> **Matrices / Particle note:** both repos ship no pre-built theme folder -
+> `backgrounds/`, `common/`, and `config/` are raw assets, and `theme.txt` is
+> only produced at build time by their `generate.sh` (`-t [window|sidebar]
+> -s [1080p|2k|4k]`). The registry entries use a `generate:<args>` SUBDIR so
+> `theamify get` drives that script automatically - see CONTRIBUTING.md for
+> how that mechanism works if you want to add another theme shaped like this.
 
 ## Add Your Own Theme
 
