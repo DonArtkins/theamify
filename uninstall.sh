@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# ─────────────────────────────────────────────────────────────────────────────
-# uninstall.sh — Remove theamify from system
+# -----------------------------------------------------------------------------
+# uninstall.sh - Remove theamify from system
 # Run as: sudo ./uninstall.sh
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 set -euo pipefail
 
@@ -10,12 +10,12 @@ readonly TOOL="theamify"
 readonly INSTALL_DIR="/usr/local/share/${TOOL}"
 readonly BIN_LINK="/usr/local/bin/${TOOL}"
 
-R="\033[0m"; G="\033[0;32m"; C="\033[0;36m"
-Y="\033[0;33m"; E="\033[0;31m"
-info()    { echo -e "${C}ℹ  ${*}${R}"; }
-success() { echo -e "${G}✓  ${*}${R}"; }
-warning() { echo -e "${Y}⚠  ${*}${R}"; }
-error()   { echo -e "${E}✗  ${*}${R}" >&2; }
+R=$'\033[0m'; G=$'\033[0;32m'; C=$'\033[0;36m'
+Y=$'\033[0;33m'; E=$'\033[0;31m'
+info()    { echo -e "${C}[INFO]${R} ${*}"; }
+success() { echo -e "${G}[OK]${R} ${*}"; }
+warning() { echo -e "${Y}[WARN]${R} ${*}"; }
+error()   { echo -e "${E}[ERR]${R} ${*}" >&2; }
 
 if [[ "${EUID}" -ne 0 ]]; then
     error "Root required."
@@ -23,17 +23,17 @@ if [[ "${EUID}" -ne 0 ]]; then
     exit 1
 fi
 
-echo -e "\n${Y}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${R}"
+echo -e "\n${Y}$(printf '%60s' '' | tr ' ' '=')${R}"
 echo -e "  Removing theamify from system"
-echo -e "${Y}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${R}\n"
+echo -e "${Y}$(printf '%60s' '' | tr ' ' '=')${R}\n"
 
 warning "The following will be removed:"
-info "  • ${BIN_LINK}       (symlink)"
-info "  • ${INSTALL_DIR}    (all tool files + theme cache)"
+info "  - ${BIN_LINK}       (symlink)"
+info "  - ${INSTALL_DIR}    (all tool files + theme cache)"
 echo
 info "  The following will NOT be touched:"
-info "  • Any GRUB theme already applied in /boot/grub/themes/"
-info "  • Your /etc/default/grub settings"
+info "  - Any GRUB theme already applied in /boot/grub/themes/"
+info "  - Your /etc/default/grub settings"
 echo
 
 read -r -p "  Continue? [y/N] " ans

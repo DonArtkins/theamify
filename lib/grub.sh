@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# ─────────────────────────────────────────────────────────────────────────────
-# lib/grub.sh — GRUB Detection & Management
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# lib/grub.sh - GRUB Detection & Management
+# -----------------------------------------------------------------------------
 
-# ── Detect GRUB themes directory ─────────────────────────────────────────────
+# -- Detect GRUB themes directory ---------------------------------------------
 grub_detect_dir() {
     local candidates=(
         "/boot/grub/themes"
@@ -13,10 +13,10 @@ grub_detect_dir() {
     for d in "${candidates[@]}"; do
         [[ -d "${d}" ]] && echo "${d}" && return 0
     done
-    echo "/boot/grub/themes"   # default fallback — will be created on apply
+    echo "/boot/grub/themes"   # default fallback - will be created on apply
 }
 
-# ── Detect GRUB update command ────────────────────────────────────────────────
+# -- Detect GRUB update command ------------------------------------------------
 grub_detect_update_cmd() {
     if command -v update-grub &>/dev/null; then
         echo "update-grub"
@@ -35,7 +35,7 @@ grub_detect_update_cmd() {
     fi
 }
 
-# ── Get name of currently active GRUB theme ──────────────────────────────────
+# -- Get name of currently active GRUB theme ----------------------------------
 grub_get_active_theme() {
     local cfg="${GRUB_CFG:-/etc/default/grub}"
     [[ ! -f "${cfg}" ]] && echo "" && return 0
@@ -50,7 +50,7 @@ grub_get_active_theme() {
     dirname "${path}" 2>/dev/null | xargs basename 2>/dev/null || echo ""
 }
 
-# ── Backup GRUB config ────────────────────────────────────────────────────────
+# -- Backup GRUB config --------------------------------------------------------
 grub_backup() {
     local cfg="${GRUB_CFG:-/etc/default/grub}"
     local bak="${cfg}.bak.$(date +%Y%m%d_%H%M%S)"
@@ -58,9 +58,9 @@ grub_backup() {
     print_dim "  Backed up: ${bak}"
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 #  Apply theme to GRUB  (4-stage process)
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 grub_apply_theme() {
     local theme_name="${1}"
     local cached="${THEMES_CACHE_DIR}/${theme_name}"
@@ -69,10 +69,10 @@ grub_apply_theme() {
     local cfg="${GRUB_CFG:-/etc/default/grub}"
 
     echo
-    print_box_title " 🚀  Applying Theme: ${theme_name} "
+    print_box_title " Applying Theme: ${theme_name} "
 
-    # ── Stage 1 : Verify cached theme ─────────────────────────────────────────
-    print_section "Stage 1 of 4 — Verify"
+    # -- Stage 1 : Verify cached theme -----------------------------------------
+    print_section "Stage 1 of 4 - Verify"
 
     if [[ ! -d "${cached}" ]]; then
         print_error "Theme '${theme_name}' is not cached."
@@ -89,8 +89,8 @@ grub_apply_theme() {
     }
     print_success "theme.txt found: ${theme_txt}"
 
-    # ── Stage 2 : Install theme files ─────────────────────────────────────────
-    print_section "Stage 2 of 4 — Install Files"
+    # -- Stage 2 : Install theme files -----------------------------------------
+    print_section "Stage 2 of 4 - Install Files"
 
     local dest="${grub_dir}/${theme_name}"
     mkdir -p "${grub_dir}"
@@ -106,8 +106,8 @@ grub_apply_theme() {
     }
     print_success "Theme files installed."
 
-    # ── Stage 3 : Configure /etc/default/grub ────────────────────────────────
-    print_section "Stage 3 of 4 — Configure GRUB"
+    # -- Stage 3 : Configure /etc/default/grub --------------------------------
+    print_section "Stage 3 of 4 - Configure GRUB"
 
     grub_backup
 
@@ -128,8 +128,8 @@ grub_apply_theme() {
     print_success "GRUB config updated."
     print_kv "GRUB_THEME" "${dest_txt}"
 
-    # ── Stage 4 : Rebuild GRUB config ────────────────────────────────────────
-    print_section "Stage 4 of 4 — Rebuild GRUB"
+    # -- Stage 4 : Rebuild GRUB config ----------------------------------------
+    print_section "Stage 4 of 4 - Rebuild GRUB"
 
     local update_cmd
     update_cmd="$(grub_detect_update_cmd)" || {
@@ -146,19 +146,19 @@ grub_apply_theme() {
         exit 1
     fi
 
-    # ── Done ──────────────────────────────────────────────────────────────────
+    # -- Done ------------------------------------------------------------------
     echo
-    print_rule "═"
-    echo -e "\n  ${C_SUCCESS}${BOLD}🎨  Theme '${theme_name}' is now active!${RESET}"
+    print_rule "="
+    echo -e "\n  ${C_SUCCESS}${BOLD}Theme '${theme_name}' is now active!${RESET}"
     echo
     print_step "Next steps:"
-    echo -e "  ${C_DIM}1.${RESET}  Reboot → ${C_CMD}sudo reboot${RESET}"
-    echo -e "  ${C_DIM}2.${RESET}  Switch  → ${C_CMD}sudo theamify use <name>${RESET}"
-    echo -e "  ${C_DIM}3.${RESET}  Browse  → ${C_CMD}theamify list${RESET}"
+    echo -e "  ${C_DIM}1.${RESET}  Reboot -> ${C_CMD}sudo reboot${RESET}"
+    echo -e "  ${C_DIM}2.${RESET}  Switch -> ${C_CMD}sudo theamify use <name>${RESET}"
+    echo -e "  ${C_DIM}3.${RESET}  Browse -> ${C_CMD}theamify list${RESET}"
     echo
 }
 
-# ── Remove theme from GRUB (does NOT remove cache) ───────────────────────────
+# -- Remove theme from GRUB (does NOT remove cache) ---------------------------
 grub_remove_theme() {
     local theme_name="${1}"
     local grub_dir

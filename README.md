@@ -1,4 +1,4 @@
-# theamify — GRUB Theme Manager
+# theamify - GRUB Theme Manager
 
 > A personal GRUB theme manager by **Don Artkins** ([@DonArtkins](https://github.com/DonArtkins))
 
@@ -6,31 +6,37 @@
 ```bash
 theamify/
 
-├── theamify              # Main CLI executable
+|-- theamify              # Main CLI executable
 
-├── install.sh            # System-wide installer
+|-- install.sh            # System-wide installer
 
-├── uninstall.sh          # Remover
+|-- uninstall.sh          # Remover
 
-├── update.sh             # Self-updater (git pull + reinstall)
+|-- update.sh             # Self-updater (git pull + reinstall)
 
-├── lib/
+|-- lib/
 
-│   ├── colors.sh         # ANSI colors & UI components
+|   |-- colors.sh         # ANSI colors & UI components
 
-│   ├── utils.sh          # Helpers, git clone, dep checks
+|   |-- utils.sh          # Helpers, git clone, dep checks
 
-│   ├── grub.sh           # GRUB detection & apply logic
+|   |-- grub.sh           # GRUB detection & apply logic
 
-│   └── themes.sh         # Theme registry CRUD & download
+|   `-- themes.sh         # Theme registry CRUD & download
 
-├── config/
+|-- config/
 
-│   └── themes.conf       # Theme registry database
+|   `-- themes.conf       # Theme registry database
 
-├── themes/               # Downloaded theme cache (auto-populated)
+|-- themes/               # Downloaded theme cache (auto-populated)
 
-└── .repo_cache/          # Git clone cache (auto-populated)
+|-- .repo_cache/          # Git clone cache (auto-populated)
+
+|-- .gitignore
+
+|-- LICENSE                # MIT
+
+`-- CONTRIBUTING.md
 ```
 
 ## Install
@@ -41,7 +47,7 @@ cd theamify
 sudo ./install.sh
 ```
 
-After install, `theamify` is available system-wide — run it from any terminal.  
+After install, `theamify` is available system-wide - run it from any terminal.  
 Only `theamify use` requires `sudo`. All other commands run as a normal user.
 
 ## Usage
@@ -60,7 +66,7 @@ theamify add <github-url>   # Add new theme to registry
 theamify del <name>         # Remove theme from registry
 theamify remove <name>      # Clear local cache (keeps registry entry)
 theamify status             # Show GRUB + dependency status
-theamify clean              # Clear repo clone cache
+theamify clean               # Clear repo clone cache
 ```
 
 ## Theme Previews in Terminal
@@ -100,7 +106,7 @@ sudo apt install chafa
 theamify add https://github.com/someone/their-grub-theme
 ```
 
-Follow the interactive wizard — it asks for name, subdir, description, and tags,
+Follow the interactive wizard - it asks for name, subdir, description, and tags,
 then appends the entry to `themes.conf`.
 
 ## Uninstall
@@ -111,6 +117,11 @@ sudo ./uninstall.sh
 
 Your active GRUB theme and `/etc/default/grub` settings are preserved.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, coding conventions, and how
+to submit a theme or a patch.
+
 ## License
 
-MIT — Don Artkins 2025
+MIT - see [LICENSE](LICENSE). Don Artkins 2026.

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# ─────────────────────────────────────────────────────────────────────────────
-# lib/utils.sh — Utility Functions
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# lib/utils.sh - Utility Functions
+# -----------------------------------------------------------------------------
 
-# ── Root guard ────────────────────────────────────────────────────────────────
+# -- Root guard ----------------------------------------------------------------
 require_root() {
     local cmd="${1:-this command}"
     if [[ "${EUID}" -ne 0 ]]; then
@@ -13,7 +13,7 @@ require_root() {
     fi
 }
 
-# ── Confirmation prompt ───────────────────────────────────────────────────────
+# -- Confirmation prompt -------------------------------------------------------
 confirm() {
     local msg="${1:-Are you sure?}"
     [[ "${OPT_YES:-false}" == "true" ]] && return 0
@@ -22,7 +22,7 @@ confirm() {
     [[ "${ans}" =~ ^[Yy]$ ]]
 }
 
-# ── Check required runtime dependencies ──────────────────────────────────────
+# -- Check required runtime dependencies --------------------------------------
 check_deps_required() {
     local ok=true
 
@@ -41,7 +41,7 @@ check_deps_required() {
     [[ "${ok}" == "true" ]] || exit 1
 }
 
-# ── Git clone (shallow) ───────────────────────────────────────────────────────
+# -- Git clone (shallow) -------------------------------------------------------
 git_clone() {
     local url="${1}" dest="${2}"
     local args=("--depth=1" "--recurse-submodules" "--quiet")
@@ -57,7 +57,7 @@ git_clone() {
     fi
 }
 
-# ── Convert GitHub URL to a safe filesystem ID ───────────────────────────────
+# -- Convert GitHub URL to a safe filesystem ID -------------------------------
 repo_url_to_id() {
     local url="${1}"
     echo "${url}" \
@@ -67,7 +67,7 @@ repo_url_to_id() {
       | sed 's|[^a-zA-Z0-9_-]|_|g'
 }
 
-# ── Clone or return path to cached repo ──────────────────────────────────────
+# -- Clone or return path to cached repo --------------------------------------
 # Usage: repo_path="$(get_repo <url> [force:true])"
 get_repo() {
     local url="${1}"
@@ -101,7 +101,7 @@ get_repo() {
     echo "${repo_path}"
 }
 
-# ── Search for theme.txt within a directory (up to 3 levels deep) ────────────
+# -- Search for theme.txt within a directory (up to 3 levels deep) ------------
 find_theme_txt() {
     local dir="${1}"
     [[ -f "${dir}/theme.txt" ]] && echo "${dir}/theme.txt" && return 0
@@ -111,7 +111,7 @@ find_theme_txt() {
     return 1
 }
 
-# ── Open URL in default browser ──────────────────────────────────────────────
+# -- Open URL in default browser ----------------------------------------------
 open_url() {
     local url="${1}"
     if command -v xdg-open &>/dev/null; then
@@ -129,10 +129,10 @@ open_url() {
     print_info "Opened in browser."
 }
 
-# ── Verbose log (only prints when -v flag is set) ────────────────────────────
+# -- Verbose log (only prints when -v flag is set) ----------------------------
 log_verbose() {
     [[ "${OPT_VERBOSE:-false}" == "true" ]] && print_dim "  [verbose] ${*}" || true
 }
 
-# ── Safe arithmetic increment (compatible with set -e) ───────────────────────
+# -- Safe arithmetic increment (compatible with set -e) -----------------------
 inc() { eval "${1}=$(( ${!1} + 1 ))"; }

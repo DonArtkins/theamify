@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
-# ─────────────────────────────────────────────────────────────────────────────
-# update.sh — Self-update theamify tool files from git
+# -----------------------------------------------------------------------------
+# update.sh - Self-update theamify tool files from git
 # Run from the cloned repo dir as: sudo ./update.sh
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 set -euo pipefail
 
 readonly TOOL="theamify"
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-R="\033[0m"; G="\033[0;32m"; C="\033[0;36m"; E="\033[0;31m"; B="\033[1;34m"
-info()    { echo -e "${C}ℹ  ${*}${R}"; }
-success() { echo -e "${G}✓  ${*}${R}"; }
-error()   { echo -e "${E}✗  ${*}${R}" >&2; }
-step()    { echo -e "${B}→  ${*}${R}"; }
+R=$'\033[0m'; G=$'\033[0;32m'; C=$'\033[0;36m'; E=$'\033[0;31m'; B=$'\033[1;34m'
+info()    { echo -e "${C}[INFO]${R} ${*}"; }
+success() { echo -e "${G}[OK]${R} ${*}"; }
+error()   { echo -e "${E}[ERR]${R} ${*}" >&2; }
+step()    { echo -e "${B}->${R} ${*}"; }
 
-echo -e "\n${B}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${R}"
+echo -e "\n${B}$(printf '%60s' '' | tr ' ' '=')${R}"
 echo -e "  Self-updating theamify"
-echo -e "${B}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${R}\n"
+echo -e "${B}$(printf '%60s' '' | tr ' ' '=')${R}\n"
 
 if [[ "${EUID}" -ne 0 ]]; then
     error "Root required."

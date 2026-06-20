@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# ─────────────────────────────────────────────────────────────────────────────
-# install.sh — Install theamify system-wide
+# -----------------------------------------------------------------------------
+# install.sh - Install theamify system-wide
 # Run as: sudo ./install.sh
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 set -euo pipefail
 
@@ -11,30 +11,32 @@ readonly INSTALL_DIR="/usr/local/share/${TOOL}"
 readonly BIN_LINK="/usr/local/bin/${TOOL}"
 readonly SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Inline colors (libs not loaded yet)
-R="\033[0m"; G="\033[0;32m"; C="\033[0;36m"
-Y="\033[0;33m"; B="\033[1;34m"; E="\033[0;31m"
-info()    { echo -e "${C}ℹ  ${*}${R}"; }
-success() { echo -e "${G}✓  ${*}${R}"; }
-warning() { echo -e "${Y}⚠  ${*}${R}"; }
-error()   { echo -e "${E}✗  ${*}${R}" >&2; }
-step()    { echo -e "${B}→  ${*}${R}"; }
-rule()    { printf "${B}%80s${R}\n" | tr ' ' '─'; }
+# Inline colors (libs not loaded yet). ANSI-C quoting ($'...') stores the
+# real ESC byte at assignment time so every print path below works
+# regardless of how the variable is later interpolated.
+R=$'\033[0m'; G=$'\033[0;32m'; C=$'\033[0;36m'
+Y=$'\033[0;33m'; B=$'\033[1;34m'; E=$'\033[0;31m'
+info()    { echo -e "${C}[INFO]${R} ${*}"; }
+success() { echo -e "${G}[OK]${R} ${*}"; }
+warning() { echo -e "${Y}[WARN]${R} ${*}"; }
+error()   { echo -e "${E}[ERR]${R} ${*}" >&2; }
+step()    { echo -e "${B}->${R} ${*}"; }
+rule()    { printf "${B}%80s${R}\n" '' | tr ' ' '-'; }
 
 echo -e "\n${B}"
 rule
-echo -e "  Installing theamify — GRUB Theme Manager by Don Artkins${R}"
+echo -e "  Installing theamify - GRUB Theme Manager by Don Artkins${R}"
 rule
 echo
 
-# ── Root check ────────────────────────────────────────────────────────────────
+# -- Root check ----------------------------------------------------------------
 if [[ "${EUID}" -ne 0 ]]; then
     error "Root privileges required."
     step  "Run: sudo ./install.sh"
     exit 1
 fi
 
-# ── Validate source directory ─────────────────────────────────────────────────
+# -- Validate source directory -------------------------------------------------
 for required_file in "${TOOL}" lib/colors.sh lib/utils.sh lib/grub.sh lib/themes.sh config/themes.conf; do
     if [[ ! -f "${SRC_DIR}/${required_file}" ]]; then
         error "Missing required file: ${required_file}"
@@ -43,7 +45,7 @@ for required_file in "${TOOL}" lib/colors.sh lib/utils.sh lib/grub.sh lib/themes
     fi
 done
 
-# ── Dependency check ─────────────────────────────────────────────────────────
+# -- Dependency check ---------------------------------------------------------
 step "Checking dependencies..."
 for dep in git bash; do
     if command -v "${dep}" &>/dev/null; then
@@ -54,20 +56,20 @@ for dep in git bash; do
     fi
 done
 if ! command -v wget &>/dev/null && ! command -v curl &>/dev/null; then
-    warning "Neither wget nor curl found — needed for theme downloads."
+    warning "Neither wget nor curl found - needed for theme downloads."
     warning "Install with: sudo apt install wget"
 fi
 if ! command -v chafa &>/dev/null; then
-    info "  chafa: not found (optional — enables image preview in terminal)"
+    info "  chafa: not found (optional - enables image preview in terminal)"
     info "  Install: sudo apt install chafa"
 fi
 
-# ── Create directory structure ────────────────────────────────────────────────
+# -- Create directory structure ------------------------------------------------
 step "Creating directories..."
 mkdir -p "${INSTALL_DIR}"/{lib,config,themes,.repo_cache}
 success "Directory: ${INSTALL_DIR}"
 
-# ── Copy files ────────────────────────────────────────────────────────────────
+# -- Copy files ----------------------------------------------------------------
 step "Copying tool files..."
 cp "${SRC_DIR}/${TOOL}" "${INSTALL_DIR}/${TOOL}"
 cp "${SRC_DIR}/lib/colors.sh"  "${INSTALL_DIR}/lib/"
@@ -86,7 +88,7 @@ fi
 
 success "Files copied."
 
-# ── Set permissions ───────────────────────────────────────────────────────────
+# -- Set permissions -----------------------------------------------------------
 step "Setting permissions..."
 chmod 755  "${INSTALL_DIR}/${TOOL}"
 chmod 644  "${INSTALL_DIR}/lib/"*.sh
@@ -97,19 +99,19 @@ chmod 777  "${INSTALL_DIR}/.repo_cache"
 chmod 666  "${INSTALL_DIR}/config/themes.conf"
 success "Permissions set."
 
-# ── Create symlink ────────────────────────────────────────────────────────────
+# -- Create symlink ------------------------------------------------------------
 step "Creating symlink: ${BIN_LINK}"
 [[ -L "${BIN_LINK}" ]] && rm "${BIN_LINK}"
 ln -sf "${INSTALL_DIR}/${TOOL}" "${BIN_LINK}"
 success "Symlink created."
 
-# ── Final verification ────────────────────────────────────────────────────────
+# -- Final verification --------------------------------------------------------
 step "Verifying installation..."
 if command -v "${TOOL}" &>/dev/null; then
     echo
     echo -e "${G}"
     rule
-    echo -e "  ✓  theamify installed successfully!${R}"
+    echo -e "  [OK] theamify installed successfully!${R}"
     rule
     echo
     info "  Version : $(${TOOL} version)"

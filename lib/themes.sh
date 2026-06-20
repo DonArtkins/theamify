@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# ─────────────────────────────────────────────────────────────────────────────
-# lib/themes.sh — Theme Registry CRUD & Download Logic
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# lib/themes.sh - Theme Registry CRUD & Download Logic
+# -----------------------------------------------------------------------------
 
-# ── Parse registry, yield data lines (skip blanks + comments) ────────────────
+# -- Parse registry, yield data lines (skip blanks + comments) ----------------
 parse_conf() {
     grep -v '^[[:space:]]*$' "${THEMES_CONF}" 2>/dev/null \
         | grep -v '^#' \
         || true
 }
 
-# ── Return the registry line for a given name ─────────────────────────────────
+# -- Return the registry line for a given name ---------------------------------
 theme_get_entry() {
     local name="${1}"
     local line
@@ -19,10 +19,10 @@ theme_get_entry() {
     echo "${line}"
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 #  Download / cache a theme
 #  Usage: theme_download <name> [--force]
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 theme_download() {
     local name="${1}"
     local force="${2:-}"
@@ -37,7 +37,7 @@ theme_download() {
     IFS='|' read -r t_name t_url t_sub t_desc t_source t_tags <<< "${line}"
     local dest="${THEMES_CACHE_DIR}/${t_name}"
 
-    # ── Already cached? ───────────────────────────────────────────────────────
+    # -- Already cached? -------------------------------------------------------
     if [[ -d "${dest}" && "${force}" != "--force" ]]; then
         print_info "Theme '${t_name}' is already cached."
         print_step "Re-download with: theamify update ${t_name}"
@@ -51,7 +51,7 @@ theme_download() {
 
     check_deps_required
 
-    # ── Step 1: Clone or reuse repo ───────────────────────────────────────────
+    # -- Step 1: Clone or reuse repo -------------------------------------------
     print_step "[1/4] Fetching repository..."
     local force_clone="false"
     [[ "${force}" == "--force" ]] && force_clone="true"
@@ -60,7 +60,7 @@ theme_download() {
     repo_path="$(get_repo "${t_url}" "${force_clone}")" || return 1
     print_success "Repository ready."
 
-    # ── Step 2: Locate theme subdir ───────────────────────────────────────────
+    # -- Step 2: Locate theme subdir -------------------------------------------
     print_step "[2/4] Locating theme files..."
 
     local src_path
@@ -89,7 +89,7 @@ theme_download() {
     fi
     print_success "Source path: ${src_path}"
 
-    # ── Step 3: Copy to theme cache ───────────────────────────────────────────
+    # -- Step 3: Copy to theme cache -------------------------------------------
     print_step "[3/4] Caching theme..."
     [[ -d "${dest}" ]] && rm -rf "${dest}"
     mkdir -p "${dest}"
@@ -110,7 +110,7 @@ theme_download() {
 
     print_success "Cached: ${dest}"
 
-    # ── Step 4: Validate theme.txt ────────────────────────────────────────────
+    # -- Step 4: Validate theme.txt --------------------------------------------
     print_step "[4/4] Validating..."
     local theme_txt
     theme_txt="$(find_theme_txt "${dest}")" || {
@@ -123,14 +123,14 @@ theme_download() {
         return 0
     }
 
-    print_success "Valid theme — theme.txt: ${theme_txt}"
+    print_success "Valid theme - theme.txt: ${theme_txt}"
     echo
     echo -e "  ${C_DIM}Apply with:${RESET}  ${C_CMD}sudo theamify use ${t_name}${RESET}"
     echo -e "  ${C_DIM}Preview at:${RESET}  ${C_CMD}theamify info ${t_name}${RESET}"
     echo
 }
 
-# ── Remove theme from local cache (registry entry kept) ───────────────────────
+# -- Remove theme from local cache (registry entry kept) -----------------------
 theme_remove_cache() {
     local name="${1}"
 
@@ -159,7 +159,7 @@ theme_remove_cache() {
     print_dim "  Registry entry kept. Re-download: theamify get ${name}"
 }
 
-# ── Add a new theme to registry (interactive wizard) ─────────────────────────
+# -- Add a new theme to registry (interactive wizard) -------------------------
 theme_add_to_registry() {
     local url="${1}"
 
@@ -220,7 +220,7 @@ theme_add_to_registry() {
     echo
 }
 
-# ── Delete theme from registry (and its cache) ───────────────────────────────
+# -- Delete theme from registry (and its cache) -------------------------------
 theme_delete_from_registry() {
     local name="${1}"
 

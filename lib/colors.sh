@@ -1,29 +1,37 @@
 #!/usr/bin/env bash
-# ─────────────────────────────────────────────────────────────────────────────
-# lib/colors.sh — ANSI Colors, Print Functions & UI Components
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# lib/colors.sh - ANSI Colors, Print Functions & UI Components
+# -----------------------------------------------------------------------------
+# Color codes are defined with ANSI-C quoting ($'...'), which stores the real
+# ESC byte in each variable at assignment time. Earlier versions stored the
+# literal text "\033[...]" instead, which only became a real escape sequence
+# when passed through a format string that printf itself escape-processes.
+# printf does NOT escape-process %s arguments - only %b does - so any color
+# variable substituted into a %s slot printed as the literal four characters
+# \033 instead of color. Storing the real byte up front removes the failure
+# mode entirely: printf, echo -e, and plain echo all emit it correctly.
 
-# ── Raw ANSI ──────────────────────────────────────────────────────────────────
-RESET="\033[0m";    BOLD="\033[1m";  DIM="\033[2m"
-ITALIC="\033[3m";   UNDERLINE="\033[4m"
+# shellcheck disable=SC2034  # full palette kept for completeness; not every entry is consumed here
+RESET=$'\033[0m';    BOLD=$'\033[1m';  DIM=$'\033[2m'
+ITALIC=$'\033[3m';   UNDERLINE=$'\033[4m'
 
-BLACK="\033[0;30m"; RED="\033[0;31m";     GREEN="\033[0;32m"
-YELLOW="\033[0;33m";BLUE="\033[0;34m";    MAGENTA="\033[0;35m"
-CYAN="\033[0;36m";  WHITE="\033[0;37m"
+BLACK=$'\033[0;30m'; RED=$'\033[0;31m';     GREEN=$'\033[0;32m'
+YELLOW=$'\033[0;33m';BLUE=$'\033[0;34m';    MAGENTA=$'\033[0;35m'
+CYAN=$'\033[0;36m';  WHITE=$'\033[0;37m'
 
-BOLD_BLACK="\033[1;30m";   BOLD_RED="\033[1;31m";     BOLD_GREEN="\033[1;32m"
-BOLD_YELLOW="\033[1;33m";  BOLD_BLUE="\033[1;34m";    BOLD_MAGENTA="\033[1;35m"
-BOLD_CYAN="\033[1;36m";    BOLD_WHITE="\033[1;37m"
+BOLD_BLACK=$'\033[1;30m';   BOLD_RED=$'\033[1;31m';     BOLD_GREEN=$'\033[1;32m'
+BOLD_YELLOW=$'\033[1;33m';  BOLD_BLUE=$'\033[1;34m';    BOLD_MAGENTA=$'\033[1;35m'
+BOLD_CYAN=$'\033[1;36m';    BOLD_WHITE=$'\033[1;37m'
 
-BRIGHT_RED="\033[0;91m";   BRIGHT_GREEN="\033[0;92m"; BRIGHT_YELLOW="\033[0;93m"
-BRIGHT_BLUE="\033[0;94m";  BRIGHT_MAGENTA="\033[0;95m";BRIGHT_CYAN="\033[0;96m"
-BRIGHT_WHITE="\033[0;97m"
+BRIGHT_RED=$'\033[0;91m';   BRIGHT_GREEN=$'\033[0;92m'; BRIGHT_YELLOW=$'\033[0;93m'
+BRIGHT_BLUE=$'\033[0;94m';  BRIGHT_MAGENTA=$'\033[0;95m';BRIGHT_CYAN=$'\033[0;96m'
+BRIGHT_WHITE=$'\033[0;97m'
 
-BG_BLACK="\033[40m";  BG_RED="\033[41m";  BG_GREEN="\033[42m"
-BG_YELLOW="\033[43m"; BG_BLUE="\033[44m"; BG_MAGENTA="\033[45m"
-BG_CYAN="\033[46m";   BG_WHITE="\033[47m"
+BG_BLACK=$'\033[40m';  BG_RED=$'\033[41m';  BG_GREEN=$'\033[42m'
+BG_YELLOW=$'\033[43m'; BG_BLUE=$'\033[44m'; BG_MAGENTA=$'\033[45m'
+BG_CYAN=$'\033[46m';   BG_WHITE=$'\033[47m'
 
-# ── Semantic aliases ──────────────────────────────────────────────────────────
+# -- Semantic aliases ----------------------------------------------------------
 C_TITLE="${BOLD_CYAN}"
 C_SUBTITLE="${BOLD_MAGENTA}"
 C_SECTION="${BOLD_YELLOW}"
@@ -43,7 +51,7 @@ C_TAG="${BRIGHT_MAGENTA}"
 C_NUM="${BOLD_YELLOW}"
 C_BORDER="${BOLD_BLUE}"
 
-# ── Strip colors when NO_COLOR is set or stdout is not a terminal ─────────────
+# -- Strip colors when NO_COLOR is set or stdout is not a terminal -------------
 if [[ -n "${NO_COLOR:-}" ]] || [[ ! -t 1 ]]; then
     RESET="" BOLD="" DIM="" ITALIC="" UNDERLINE=""
     BLACK="" RED="" GREEN="" YELLOW="" BLUE="" MAGENTA="" CYAN="" WHITE=""
@@ -59,28 +67,37 @@ if [[ -n "${NO_COLOR:-}" ]] || [[ ! -t 1 ]]; then
     C_TAG="" C_NUM="" C_BORDER=""
 fi
 
-# ── Print helpers ─────────────────────────────────────────────────────────────
+# -- Print helpers -------------------------------------------------------------
+# Plain bracket tags instead of glyph icons - identical output across every
+# locale, font, and non-UTF-8 terminal, no fallback "tofu" boxes possible.
 print_title()   { echo -e "${C_TITLE}${*}${RESET}"; }
-print_section() { echo -e "\n${C_SECTION}▶ ${*}${RESET}"; }
-print_success() { echo -e "${C_SUCCESS}✓ ${*}${RESET}"; }
-print_error()   { echo -e "${C_ERROR}✗ ${*}${RESET}" >&2; }
-print_warning() { echo -e "${C_WARNING}⚠ ${*}${RESET}"; }
-print_info()    { echo -e "${C_INFO}ℹ ${*}${RESET}"; }
-print_step()    { echo -e "${C_STEP}→ ${*}${RESET}"; }
+print_section() { echo -e "\n${C_SECTION}== ${*}${RESET}"; }
+print_success() { echo -e "${C_SUCCESS}[OK]${RESET} ${*}"; }
+print_error()   { echo -e "${C_ERROR}[ERR]${RESET} ${*}" >&2; }
+print_warning() { echo -e "${C_WARNING}[WARN]${RESET} ${*}"; }
+print_info()    { echo -e "${C_INFO}[INFO]${RESET} ${*}"; }
+print_step()    { echo -e "${C_STEP}->${RESET} ${*}"; }
 print_dim()     { echo -e "${C_DIM}${*}${RESET}"; }
 print_cmd()     { echo -e "${C_CMD}  \$ ${*}${RESET}"; }
 print_link()    { echo -e "${C_LINK}${*}${RESET}"; }
 print_bold()    { echo -e "${BOLD_WHITE}${*}${RESET}"; }
 
-# ── UI components ─────────────────────────────────────────────────────────────
-_term_width() { tput cols 2>/dev/null || echo 80; }
+# -- UI components -------------------------------------------------------------
+_term_width() {
+    local w; w="$(tput cols 2>/dev/null || echo 80)"
+    (( w > 100 )) && w=100
+    echo "${w}"
+}
 
+# ASCII rule. Default char is '-' so it always renders, regardless of locale
+# or font - box-drawing characters (- = =) fall back to "tofu" glyphs on
+# terminals/fonts without full Unicode coverage.
 print_rule() {
-    local char="${1:-─}"
+    local char="${1:--}"
     local w; w="$(_term_width)"
-    printf "${C_BORDER}"
-    printf "%${w}s" | tr ' ' "${char}"
-    printf "${RESET}\n"
+    printf '%s' "${C_BORDER}"
+    printf '%*s' "${w}" '' | tr ' ' "${char}"
+    printf '%s\n' "${RESET}"
 }
 
 print_box_title() {
@@ -89,11 +106,15 @@ print_box_title() {
     local inner=$(( w - 4 ))
     local tlen="${#title}"
     local lpad=$(( (inner - tlen) / 2 ))
+    (( lpad < 0 )) && lpad=0
     local rpad=$(( inner - tlen - lpad ))
-    print_rule "─"
-    printf "${C_BORDER}│${RESET} ${C_TITLE}%*s%s%*s${RESET} ${C_BORDER}│${RESET}\n" \
-        "${lpad}" "" "${title}" "${rpad}" ""
-    print_rule "─"
+    (( rpad < 0 )) && rpad=0
+
+    print_rule "-"
+    printf '%s|%s %s%*s%s%*s %s|%s\n' \
+        "${C_BORDER}" "${RESET}" "${C_TITLE}" \
+        "${lpad}" "" "${title}" "${rpad}" "" "${C_BORDER}" "${RESET}"
+    print_rule "-"
 }
 
 print_kv() {
@@ -103,31 +124,30 @@ print_kv() {
 
 print_status() {
     case "${1:-}" in
-        active)   printf "${C_ACTIVE}● ACTIVE${RESET}" ;;
-        cached)   printf "${C_INFO}● CACHED${RESET}" ;;
-        remote)   printf "${C_DIM}○ REMOTE${RESET}" ;;
-        error)    printf "${C_ERROR}✗ ERROR${RESET}" ;;
-        *)        printf "${C_DIM}? UNKNOWN${RESET}" ;;
+        active)   printf '%s[ACTIVE]%s'  "${C_ACTIVE}" "${RESET}" ;;
+        cached)   printf '%s[CACHED]%s'  "${C_INFO}"   "${RESET}" ;;
+        remote)   printf '%s[REMOTE]%s'  "${C_DIM}"    "${RESET}" ;;
+        error)    printf '%s[ERROR]%s'   "${C_ERROR}"  "${RESET}" ;;
+        *)        printf '%s[UNKNOWN]%s' "${C_DIM}"    "${RESET}" ;;
     esac
 }
 
+# Compact, non-decorative header - no block-letter logo. A large multi-line
+# ASCII-art wordmark is the kind of padding the project's style guide bans
+# under "no decorative ASCII art"; this still reads as a clear product banner.
 print_banner() {
-    echo -e "${BOLD_CYAN}"
-    cat << 'BANNER'
-  ████████╗██╗  ██╗███████╗ █████╗ ███╗   ███╗██╗███████╗██╗   ██╗
-     ██╔══╝██║  ██║██╔════╝██╔══██╗████╗ ████║██║██╔════╝╚██╗ ██╔╝
-     ██║   ███████║█████╗  ███████║██╔████╔██║██║█████╗   ╚████╔╝ 
-     ██║   ██╔══██║██╔══╝  ██╔══██║██║╚██╔╝██║██║██╔══╝    ╚██╔╝  
-     ██║   ██║  ██║███████╗██║  ██║██║ ╚═╝ ██║██║██║        ██║   
-     ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝╚═╝        ╚═╝   
-BANNER
-    echo -e "${RESET}"
-    echo -e "  ${C_DIM}GRUB Theme Manager by Don Artkins  ·  v${VERSION:-1.0.0}${RESET}"
+    print_rule "="
+    echo -e "  ${C_TITLE}${BOLD}theamify${RESET} ${C_DIM}v${VERSION:-1.0.0}${RESET} ${C_DIM}- GRUB Theme Manager${RESET}"
+    echo -e "  ${C_DIM}by Don Artkins${RESET}"
+    print_rule "="
     echo
 }
 
-# ── Spinner ───────────────────────────────────────────────────────────────────
-SPINNER_FRAMES=('⣾' '⣽' '⣻' '⢿' '⡿' '⣟' '⣯' '⣷')
+# -- Spinner -------------------------------------------------------------------
+# Classic 4-frame ASCII spinner - renders identically everywhere; the braille
+# block glyphs it replaces require a Unicode-complete monospace font.
+# shellcheck disable=SC1003
+SPINNER_FRAMES=('|' '/' '-' '\')
 SPINNER_PID=""
 
 spinner_start() {
@@ -135,7 +155,7 @@ spinner_start() {
     (
         local i=0
         while true; do
-            printf "\r  ${C_STEP}${SPINNER_FRAMES[$((i % 8))]}${RESET} ${msg}..."
+            printf '\r  %s%s%s %s...' "${C_STEP}" "${SPINNER_FRAMES[$((i % 4))]}" "${RESET}" "${msg}"
             sleep 0.1
             i=$(( i + 1 ))
         done
@@ -148,6 +168,6 @@ spinner_stop() {
     if [[ -n "${SPINNER_PID:-}" ]]; then
         kill "${SPINNER_PID}" 2>/dev/null || true
         SPINNER_PID=""
-        printf "\r\033[K"
+        printf '\r\033[K'
     fi
 }
