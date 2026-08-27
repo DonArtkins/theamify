@@ -1,6 +1,145 @@
-# theamify - GRUB Theme Manager
+# 🎨 theamify
 
-> A personal GRUB theme manager by **Don Artkins** ([@DonArtkins](https://github.com/DonArtkins))
+> **GRUB Theme Manager & Interactive Browser Wizard**  
+> Browse, **preview (terminal thumbnails)**, download and apply GRUB boot themes — powered by the original `theamify` engine, now on npm as **`theamify-cli`**.
+
+---
+
+## 🚀 Install (global — run from anywhere)
+
+**One command, installed globally so `theamify` works from any directory on your machine:**
+
+```bash
+npm install -g theamify-cli
+```
+
+The `-g` global flag puts the `theamify` command on your system `PATH` (or provisions a user-local runtime), so you can call it from **any folder and any terminal**:
+
+```bash
+theamify                    # ✨ interactive theme browser wizard
+theamify list               # list all themes with status
+theamify info <name>        # details + terminal preview (needs chafa)
+theamify get <name>         # download & cache a theme
+sudo theamify use <name>    # apply to GRUB + rebuild
+theamify status             # GRUB & dependency status
+theamify doctor             # diagnose install, GRUB & dependencies
+theamify uninstall          # remove theamify (asks before deleting anything)
+```
+
+> 💡 Already installed? Upgrading is the same command — npm's **global** install fetches the latest release and your downloaded themes & registry edits are preserved:
+>
+> ```bash
+> npm install -g theamify-cli@latest
+> ```
+
+> 🧰 Prefer a zero-install run (no permanent install)? Use npx directly:
+>
+> ```bash
+> npx -y theamify-cli
+> ```
+
+---
+
+## ✨ What's New in v1.0.0 (npm wizard release)
+
+| Feature | Details |
+|---|---|
+| 🧙 **Interactive browser wizard** | `theamify` with no args → a clack-powered picker (mirroring GitSwitch) to **browse → preview → apply** |
+| 🖼️ **Terminal thumbnail preview** | Pick a theme and see its actual boot-screen preview inline via `chafa` before you commit |
+| 📦 **npm global install** | One command, run from anywhere — engine provisions itself under `~/.local/share/theamify` (writable, no sudo needed) |
+| 🩺 **`theamify doctor`** | Diagnose install, GRUB, active theme, registry & dependencies |
+| ⌨️ **Ctrl+C / Ctrl+Z safe** | Terminal signal safety net so interactive `sudo` during `use` is interruptible |
+
+---
+
+## 📋 Requirements
+
+| Tool | Purpose |
+|---|---|
+| `bash` | Runs the theamify engine |
+| `git` | Downloading / cloning themes |
+| `curl` **or** `wget` | Downloading |
+| `chafa` *(optional)* | Terminal thumbnail previews in the wizard |
+| `sudo` | Only applying a GRUB theme (`theamify use`) |
+
+---
+
+## Rosetta Stone — classic tool vs npm CLI
+
+The npm CLI is a thin Node wrapper around the original Bash engine, so every
+non-interactive command still behaves identically:
+
+| npm CLI | Original tool |
+|---|---|
+| `theamify list` | `theamify list` |
+| `theamify get <n>` | `theamify get <n>` |
+| `sudo theamify use <n>` | `sudo theamify use <n>` |
+| `theamify info <n>` | `theamify info <n>` |
+| `theamify add/del/remove/open/update` | same names |
+
+`theamify <no args>` is where the wizard differs — it opens the interactive
+browser/preview/apply flow instead of the flat TUI menu.
+
+---
+
+## Theme Previews in the Terminal
+
+The wizard & `info` render a live **thumbnail** of a cached theme via `chafa`:
+
+```bash
+sudo apt install chafa
+```
+
+```bash
+theamify            # pick a theme → "Show terminal thumbnail preview"
+theamify info <name>
+```
+
+---
+
+## Themes Included
+
+| Name | Style | Source |
+|---|---|---|
+| CyberEXS | Cyberpunk dark | [gnome-look](https://www.gnome-look.org/p/1968990) |
+| CyberSynchro | Cyberpunk teal | [gnome-look](https://www.gnome-look.org/p/1972621) |
+| Space-Isolation | Sci-Fi | [gnome-look](https://www.gnome-look.org/p/2296342) |
+| Kawaii-GRUB | Anime | [gnome-look](https://www.gnome-look.org/p/2218890) |
+| Kayoko-Onikata | Anime / Cat | [gnome-look](https://www.gnome-look.org/p/2350900) |
+| Matrices | Abstract tech | [gnome-look](https://www.gnome-look.org/p/2271298) |
+| Particle | Abstract | [gnome-look](https://www.gnome-look.org/p/2269763) |
+| Zzz-GRUB | Chill / Cat | [gnome-look](https://www.gnome-look.org/p/2354136) |
+
+---
+
+## 📁 Project Structure (npm package)
+
+```
+bin/theamify.js         # npm bin → src/cli.js
+src/cli.js              # command router + signal safety net
+src/core/engine.js      # runtime provisioning & engine forwarding
+src/lib/conf.js         # themes.conf registry parser
+src/commands/manage.js  # doctor / status / uninstall
+src/wizard/browse.js    # interactive browser + chafa preview + apply
+vendor/                 # bundled bash engine (theamify + lib/ + config/)
+```
+
+---
+
+## 🗑 Uninstalling
+
+```bash
+theamify uninstall          # interactive — removes the engine runtime
+npm uninstall -g theamify-cli
+```
+
+Your active GRUB theme and `/etc/default/grub` settings are always preserved.
+
+---
+
+## 📄 License
+
+MIT — see [LICENSE](LICENSE). Don Artkins 2026.
 
 ## Project Structure
 ```bash

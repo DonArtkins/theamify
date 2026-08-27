@@ -1,0 +1,52 @@
+{
+  "name": "theamify-cli",
+  "version": "1.0.0",
+  "description": "theamify — GRUB theme manager & interactive browser wizard. Browse, preview, download and apply GRUB boot themes from the terminal.",
+  "type": "module",
+  "main": "src/cli.js",
+  "bin": {
+    "theamify": "bin/theamify.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "vendor/"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "npm run test:syntax && node --test",
+    "test:syntax": "bash -n vendor/theamify && bash -n vendor/lib/utils.sh && bash -n vendor/lib/grub.sh && bash -n vendor/lib/themes.sh && bash -n vendor/lib/colors.sh",
+    "publish:dry-run": "npm publish --dry-run --access public",
+    "release:patch": "npm test && npm version patch -m \"chore(release): %s\" && git push origin main --follow-tags",
+    "release:minor": "npm test && npm version minor -m \"chore(release): %s\" && git push origin main --follow-tags",
+    "release:major": "npm test && npm version major -m \"chore(release): %s\" && git push origin main --follow-tags"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DonArtkins/theamify.git"
+  },
+  "homepage": "https://github.com/DonArtkins/theamify#readme",
+  "bugs": {
+    "url": "https://github.com/DonArtkins/theamify/issues"
+  },
+  "keywords": [
+    "grub",
+    "theme",
+    "grub-theme",
+    "linux",
+    "boot",
+    "wizard",
+    "cli",
+    "theamify"
+  ],
+  "author": "Don Artkins (https://github.com/DonArtkins)",
+  "license": "MIT",
+  "dependencies": {
+    "@clack/prompts": "^0.7.0",
+    "citty": "^0.2.2",
+    "execa": "^8.0.1",
+    "picocolors": "^1.1.1"
+  }
+}
