@@ -10,6 +10,7 @@ import {
   resolveEngine,
 } from '../core/engine.js';
 import { parseThemes } from '../lib/conf.js';
+import { uninstallChafa } from '../lib/chafa.js';
 
 /** `theamify doctor` — installation, GRUB and dependency health. */
 export async function runDoctor() {
@@ -111,6 +112,9 @@ export async function runUninstallWizard() {
     initialValue: true,
   });
   if (p.isCancel(keepGrub)) { p.cancel('Aborted.'); process.exit(0); }
+
+  // Optionally remove the thumbnail renderer the wizard installed.
+  await uninstallChafa();
 
   p.outro(pc.green(
     `Uninstalled.${removed ? ' Runtime removed.' : ''}${keepGrub ? ' Active GRUB theme left in place.' : ' To revert GRUB, remove GRUB_THEME= from /etc/default/grub and rebuild.'}`,

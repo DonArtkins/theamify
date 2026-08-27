@@ -59,7 +59,7 @@ theamify uninstall          # remove theamify (asks before deleting anything)
 | `bash` | Runs the theamify engine |
 | `git` | Downloading / cloning themes |
 | `curl` **or** `wget` | Downloading |
-| `chafa` *(optional)* | Terminal thumbnail previews in the wizard |
+| `chafa` | Terminal thumbnail previews — **auto-installed by the wizard** |
 | `sudo` | Only applying a GRUB theme (`theamify use`) |
 
 ---
@@ -84,15 +84,23 @@ browser/preview/apply flow instead of the flat TUI menu.
 
 ## Theme Previews in the Terminal
 
-The wizard & `info` render a live **thumbnail** of a cached theme via `chafa`:
+chafa is a **first-class dependency of the wizard** — the first step of every
+wizard run ensures it's present (installing it when missing), updates it on
+`theamify update`, and removes it on `theamify uninstall`.
 
+```bash
+theamify            # Step 1: ensures chafa (prompts to install if missing)
+```
+
+Or check/install it directly via your package manager:
 ```bash
 sudo apt install chafa
 ```
 
 ```bash
-theamify            # pick a theme → "Show terminal thumbnail preview"
-theamify info <name>
+theamify                                # pick a theme → auto-preview
+theamify info <name>                    # details + thumbnail preview
+theamify update                         # also updates chafa
 ```
 
 ---

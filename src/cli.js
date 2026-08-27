@@ -3,6 +3,7 @@ import pc from 'picocolors';
 import { createRequire } from 'node:module';
 import { runThemeBrowser } from './wizard/browse.js';
 import { runDoctor, runStatus, runUninstallWizard } from './commands/manage.js';
+import { updateChafa } from './lib/chafa.js';
 import { runEngine } from './core/engine.js';
 
 const require = createRequire(import.meta.url);
@@ -83,6 +84,11 @@ const main = defineCommand({
         return runDoctor();
       case 'uninstall':
         return runUninstallWizard();
+      case 'update':
+        // Self-update path: refresh the thumbnail renderer, then forward theme
+        // re-downloads to the engine (no name → all cached themes).
+        await updateChafa();
+        return forwardEngine(['update', ...rest]);
       case 'use':
       case 'apply':
       case 'set':
