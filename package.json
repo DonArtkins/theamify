@@ -1,6 +1,6 @@
 {
   "name": "theamify-cli",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "theamify — GRUB theme manager & interactive browser wizard. Browse, preview, download and apply GRUB boot themes from the terminal.",
   "type": "module",
   "main": "src/cli.js",

@@ -3,7 +3,7 @@ import pc from 'picocolors';
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseThemes, resolveConfPath } from '../lib/conf.js';
-import { ensureChafa } from '../lib/chafa.js';
+import { ensureManagedTools } from '../lib/tools.js';
 import { resolveEngine, USER_DIR } from '../core/engine.js';
 
 const USER_THEMES = path.join(USER_DIR, 'themes');
@@ -69,8 +69,9 @@ export async function showThemePreview({ name, width = 40, height = 12 }) {
 
 /** Interactive GRUB-theme browser wizard (mirrors GitSwitch's look & feel). */
 export async function runThemeBrowser() {
-  // Step 1: ensure the thumbnail renderer is present before anything else.
-  await ensureChafa();
+  // Step 1: ensure companion tools (chafa, grub-customizer) — detect, install
+  // or update, then continue BEFORE showing the theme picker.
+  await ensureManagedTools();
 
   const themes = parseThemes(resolveConfPath());
   const active = activeTheme();

@@ -9,8 +9,8 @@ import {
   USER_BIN_LINK,
   resolveEngine,
 } from '../core/engine.js';
-import { parseThemes } from '../lib/conf.js';
-import { uninstallChafa } from '../lib/chafa.js';
+import { parseThemes, resolveConfPath } from '../lib/conf.js';
+import { companionToolStatus } from '../lib/tools.js';
 
 /** `theamify doctor` — installation, GRUB and dependency health. */
 export async function runDoctor() {
@@ -23,12 +23,20 @@ export async function runDoctor() {
 
   // Registry / theme count
   try {
-    const themes = parseThemes();
+    const themes = parseThemes(resolveConfPath());
     const cached = themes.filter((t) => fs.existsSync(path.join(USER_DIR, 'themes', t.name)));
     console.log(`  Registry : ${themes.length} theme(s), ${cached.length} cached`);
   } catch (e) {
     console.log(`  Registry : ${pc.red(`unreadable (${e.message})`)}`);
   }
+
+  // Base dependencies
+  const deps = ['git', 'wget', 'curl'].map((d) => [d, which(d)]);
+  console.log('  Deps     : ' + deps.map(([d, ok]) => `${d}:${ok ? pc.green('✓') : pc.dim('—')}`).join(' '));
+
+  // Companion tools (chafa, grub-customizer)
+  const tools = companionToolStatus();
+  console.log('  Tools    : ' + tools.map((t) => `${t.name}:${t.present ? pc.green('✓') : pc.dim('—')}`).join(' '));
 
   // GRUB active theme + dir
   const grubDir = grubDetectDir();
@@ -36,9 +44,6 @@ export async function runDoctor() {
   const active = activeThemeLabel();
   console.log(`  Active   : ${active ? pc.green('⭐ ' + active) : pc.dim('none')}`);
 
-  // Dependencies
-  const deps = ['git', 'chafa', 'wget', 'curl'].map((d) => [d, which(d)]);
-  console.log('  Deps     : ' + deps.map(([d, ok]) => `${d}:${ok ? pc.green('✓') : pc.dim('—')}`).join(' '));
   const grub = ['update-grub', 'grub-mkconfig', 'grub2-mkconfig'].filter((c) => which(c));
   console.log(`  GRUB cmd : ${grub.length ? grub.join(', ') : pc.red('none found')}`);
   console.log();
@@ -113,10 +118,10 @@ export async function runUninstallWizard() {
   });
   if (p.isCancel(keepGrub)) { p.cancel('Aborted.'); process.exit(0); }
 
-  // Optionally remove the thumbnail renderer the wizard installed.
-  await uninstallChafa();
+  // Companion tools (chafa, grub-customizer) are intentionally LEFT in place —
+  // the user may want them for later; uninstall only removes theamify itself.
 
   p.outro(pc.green(
-    `Uninstalled.${removed ? ' Runtime removed.' : ''}${keepGrub ? ' Active GRUB theme left in place.' : ' To revert GRUB, remove GRUB_THEME= from /etc/default/grub and rebuild.'}`,
+    `Uninstalled.${removed ? ' Runtime removed.' : ''}${keepGrub ? ' Active GRUB theme left in place.' : ' To revert GRUB, remove GRUB_THEME= from /etc/default/grub and rebuild.'} Companion tools (chafa, grub-customizer) were kept for your use.`,
   ));
 }
