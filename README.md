@@ -28,25 +28,38 @@ theamify doctor             # diagnose install, GRUB, tools & dependencies
 theamify upgrade            # check for & install the latest npm version
 theamify repair             # fix a broken install (re-provision the engine)
 theamify uninstall          # remove theamify entirely (incl. npm package)
+theamify version            # print the version
+theamify help               # show all commands
 ```
+
+> **Command aliases** — `ls` (list), `show` (info), `get`/`fetch`/`download`, `use`/`apply`/`set`, `rm`/`uncache` (remove), `del`/`delete`, `purge-cache` (clean), `browse`/`wizard`/`install` (wizard).  \
+> **Version flags** — `-v`, `-V`, `--version`  ·  **Help flags** — `-h`, `--help`
 
 > 💡 Upgrading is the same command — `npm install -g theamify-cli@latest`, and your downloaded themes & registry edits are preserved.  
 > 🧰 Zero-install run (no permanent install): `npx -y theamify-cli`
 
 ---
 
-## ✨ What's New (v1.1.0 — npm release)
+## ✨ What's New (v2.2.2 — uninstall crash hotfix)
+
+| Feature | Details |
+|---|---|
+| 🩹 **`ReferenceError: path is not defined` fixed** | The v2.2.1 uninstall crashed while stripping leftover PATH markers from `~/.bashrc`/`~/.zshrc` — `cleanRcMarkers` used `path`/`os`/`fs` without importing them. Now fixed with proper `node:` imports and guarded by regression tests. |
+| 🔄 **Engine lockstep to v2.2.2** | Bundled engine `VERSION` bumped to match the npm package — no more "update available" nag after a fresh install. |
+
+## ✨ What's New (v2.2.1 — release)
 
 | Feature | Details |
 |---|---|
 | 🧙 **Interactive wizard** | One command: detect companion tools → pick theme → **preview** → apply |
 | 🧩 **Auto-detected companion tools** | **chafa** (thumbnails) + **grub-customizer** (GUI) are detected first; installed if missing, or **option to update** if present — then it continues on its own |
-| 🖼️ **Terminal thumbnail preview** | See the boot-screen image inline via `chafa` before you commit |
+| 🖼️ **Thumbnail by default** | Selecting a cached theme renders its terminal thumbnail **automatically** (no separate “preview” item) |
 | 📦 **npm global install** | Engine provisions itself user-writable (no sudo for downloads) |
 | 🩺 **`theamify doctor`** | Diagnose install, GRUB, active theme, registry, tools & dependencies |
-| 🗑 **Safe uninstall** | Removes **only theamify** — leaves chafa & grub-customizer for later use |
+| 🗑 **Complete uninstall** | Deletes **ALL downloaded themes**, resets GRUB to default, removes the `theamify-cli` npm package **and** strips leftover PATH markers from `~/.bashrc`/`~/.zshrc` — after which `theamify` gives a normal `command not found` |
 | ⌨️ **Ctrl+C / Ctrl+Z safe** | Signal safety net; interactive `sudo` is never frozen |
 | 🔄 **Self-manage (v2.2+)** | `upgrade`, `repair`, auto-update check on every wizard run |
+| 🧹 **Install-flow download-all** | Wizard offers to download every theme up front so each one is instantly previewable/applicable |
 
 ---
 

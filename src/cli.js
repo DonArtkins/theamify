@@ -73,6 +73,13 @@ const main = defineCommand({
   async run({ args }) {
     const [cmd, ...rest] = args._;
 
+    // citty parses `-V` as a boolean flag into args.V (never reached via args._);
+    // treat it as a version request like the other aliases.
+    if (args.V) {
+      console.log(`theamify v${pkg.version}`);
+      return undefined;
+    }
+
     // No arguments → the interactive theme browser wizard.
     if (!cmd) return runThemeBrowser();
 

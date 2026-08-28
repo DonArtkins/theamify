@@ -1,5 +1,8 @@
 import { execa } from 'execa';
 import pc from 'picocolors';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -34,13 +37,13 @@ export async function getLatestVersion() {
  * Remove any leftover `# theamify CLI PATH` + follow-up `export PATH=` line from
  * ~/.bashrc and ~/.zshrc (added by old installs). Called by uninstall so no
  * traces of the tool remain in shell startup files.
+ * @param {string} [homeDir] override the home directory (used by tests)
  */
-export async function cleanRcMarkers() {
-  const rcs = ['.bashrc', '.zshrc'].map((f) => path.join(require('node:os').homedir(), f));
+export async function cleanRcMarkers(homeDir = os.homedir()) {
+  const rcs = ['.bashrc', '.zshrc'].map((f) => path.join(homeDir, f));
   const marker = '# theamify CLI PATH';
   for (const rc of rcs) {
     try {
-      const fs = require('node:fs');
       if (!fs.existsSync(rc)) continue;
       const lines = fs.readFileSync(rc, 'utf8').split('\n');
       const out = [];
