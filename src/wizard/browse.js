@@ -92,6 +92,33 @@ async function ensureCached(engine, name) {
 }
 
 /**
+ * Download every registry theme into the local cache during setup. Runs the
+ * engine's `get --all`, which skips anything already cached and never prompts
+ * per-theme. Returns the number cached afterwards.
+ */
+async function ensureAllThemes(engine, { prompt = true } = {}) {
+  if (prompt) {
+    const want = await p.confirm({
+      message: 'Download all themes now (so every theme has an instant preview)?',
+      initialValue: true,
+    });
+    if (p.isCancel(want) || !want) {
+      p.log.message(pc.dim('Skipped — you can download individual themes from the menu.'));
+      return;
+    }
+  }
+
+  const s = p.spinner();
+  s.start('Downloading all themes…');
+  try {
+    await execa('bash', [engine, 'get', '--all'], { stdio: 'inherit', reject: true });
+    s.stop(pc.green('All themes downloaded.'));
+  } catch (e) {
+    s.stop(pc.red(`Theme download incomplete: ${e.message}`));
+  }
+}
+
+/**
  * Interactive GRUB-theme browser wizard (mirrors GitSwitch's look & feel).
  * Stays in a menu loop: pick a theme → preview / download / apply / open →
  * back to the theme list — it NEVER hard-exits until you choose Quit.
@@ -102,6 +129,11 @@ export async function runThemeBrowser() {
   await ensureManagedTools();
 
   const engine = await resolveEngine();
+
+  // Step 2: install-flow — make all themes downloadable/previewable up front so
+  // the user never has to fetch one just to see it.
+  await ensureAllThemes(engine, { prompt: true });
+
   let quit = false;
 
   while (!quit) {
@@ -140,7 +172,6 @@ export async function runThemeBrowser() {
       const action = await p.select({
         message: `What do you want to do with ${pc.cyan(picked.name)}?`,
         options: [
-          { value: 'preview', label: 'Preview terminal thumbnail', hint: cached ? 'renders below' : 'downloads first' },
           { value: 'get', label: 'Download / update it', hint: 'git clone into local cache' },
           { value: 'use', label: 'Apply to GRUB', hint: 'needs sudo; rebuilds GRUB' },
           { value: 'open', label: 'Open source page in browser' },
@@ -152,11 +183,7 @@ export async function runThemeBrowser() {
       if (p.isCancel(action) || action === 'quit') { quit = true; break; }
       if (action === 'menu') { backToMenu = true; break; }
 
-      if (action === 'preview') {
-        if (await ensureCached(engine, picked.name)) {
-          await showThemePreview({ name: picked.name, width: 80, height: 22 });
-        }
-      } else if (action === 'get') {
+      if (action === 'get') {
         await ensureCached(engine, picked.name);
       } else if (action === 'use') {
         await runUse(engine, picked.name);

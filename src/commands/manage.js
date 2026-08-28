@@ -6,7 +6,7 @@ import { execa, execaSync } from 'execa';
 import {
   findInstalledRuntime,
   USER_DIR,
-  USER_BIN_LINK,
+  removeShadowBin,
   resolveEngine,
 } from '../core/engine.js';
 import { parseThemes, resolveConfPath } from '../lib/conf.js';
@@ -80,7 +80,35 @@ export async function runStatus() {
   if (res.exitCode !== 0) process.exit(res.exitCode);
 }
 
-/** `theamify uninstall` — interactive, every destructive step confirmed. */
+/**
+ * Remove GRUB_THEME from /etc/default/grub and rebuild the boot menu so the
+ * system returns to the default theme. Requires sudo when not root.
+ * @returns {Promise<boolean>} true when GRUB was reset
+ */
+async function resetGrubTheme() {
+  const script = `
+GRUB=/etc/default/grub
+[ -f "$GRUB" ] || exit 0
+sed -i '/^GRUB_THEME=/d' "$GRUB"
+if command -v update-grub >/dev/null 2>&1; then
+  update-grub
+elif command -v grub-mkconfig >/dev/null 2>&1; then
+  grub-mkconfig -o /boot/grub/grub.cfg
+elif command -v grub2-mkconfig >/dev/null 2>&1; then
+  grub2-mkconfig -o /boot/grub2/grub.cfg
+fi
+`.trim();
+  if (process.getuid() === 0) {
+    const res = await execa('bash', ['-c', script], { stdio: 'inherit', reject: false });
+    return res.exitCode === 0;
+  }
+  // Release the terminal so the sudo password prompt is visible & interruptible.
+  console.log();
+  const res = await execa('sudo', ['bash', '-c', script], { stdio: 'inherit', reject: false });
+  return res.exitCode === 0;
+}
+
+/** `theamify uninstall` — removes theamify, ALL downloaded themes, and resets GRUB to default. */
 export async function runUninstallWizard() {
   p.intro(pc.bgRed(pc.black(' theamify Uninstaller ')));
   const found = findInstalledRuntime();
@@ -89,7 +117,7 @@ export async function runUninstallWizard() {
   let removed = false;
   if (found) {
     const confirm = await p.confirm({
-      message: `Remove theamify files at ${found.dir}/?`,
+      message: `Remove theamify files at ${found.dir}/? (this deletes ALL downloaded themes)`,
       initialValue: true,
     });
     if (!p.isCancel(confirm) && confirm) {
@@ -102,26 +130,28 @@ export async function runUninstallWizard() {
           fs.rmSync(dir, { recursive: true, force: true });
         }
         removed = true;
-        // remove the PATH symlink arm (never touches ~/.bashrc blocks without asking? leave PATH block — it's harmless)
-        if (USER_BIN_LINK.startsWith(USER_DIR)) {
-          fs.rmSync(USER_BIN_LINK, { force: true });
-        }
+        removeShadowBin();
       } catch {
         p.log.warn(`Could not remove ${found.dir}.`);
       }
     }
   }
 
-  const keepGrub = await p.confirm({
-    message: 'Keep your currently-applied GRUB theme? (recommended)',
+  // Reset the boot menu back to the default (remove the applied GRUB theme).
+  const resetGrub = await p.confirm({
+    message: 'Remove your applied GRUB theme and reset to the default boot menu?',
     initialValue: true,
   });
-  if (p.isCancel(keepGrub)) { p.cancel('Aborted.'); process.exit(0); }
+  if (p.isCancel(resetGrub)) { p.cancel('Aborted.'); process.exit(0); }
+  const grubReset = resetGrub ? await resetGrubTheme() : false;
 
   // Companion tools (chafa, grub-customizer) are intentionally LEFT in place —
   // the user may want them for later; uninstall only removes theamify itself.
+  const themeNote = grubReset
+    ? 'Boot menu reset to the default theme.'
+    : (resetGrub ? 'GRUB reset could not be completed — remove GRUB_THEME= from /etc/default/grub and rebuild.' : 'Your applied GRUB theme was left in place.');
 
   p.outro(pc.green(
-    `Uninstalled.${removed ? ' Runtime removed.' : ''}${keepGrub ? ' Active GRUB theme left in place.' : ' To revert GRUB, remove GRUB_THEME= from /etc/default/grub and rebuild.'} Companion tools (chafa, grub-customizer) were kept for your use.`,
+    `Uninstalled.${removed ? ' Runtime + all downloaded themes removed.' : ''} ${themeNote} Companion tools (chafa, grub-customizer) were kept for your use.`,
   ));
 }

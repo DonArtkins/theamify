@@ -10,7 +10,7 @@ const require = createRequire(import.meta.url);
 const pkg = require('../package.json');
 
 /** Commands forwarded straight to the bash engine. */
-const ENGINE_COMMANDS = ['list', 'ls', 'info', 'show', 'get', 'fetch', 'download', 'remove', 'rm', 'uncache', 'add', 'del', 'delete', 'update', 'open', 'browse', 'clean', 'purge-cache', 'help', '-h', '-V', '--version'];
+const ENGINE_COMMANDS = ['list', 'ls', 'info', 'show', 'get', 'fetch', 'download', 'remove', 'rm', 'uncache', 'add', 'del', 'delete', 'update', 'open', 'clean', 'purge-cache'];
 
 /**
  * Forward argv to the bash engine and mirror its exit status onto this process.
@@ -78,6 +78,20 @@ const main = defineCommand({
       case 'wizard':
       case 'browse':
         return runThemeBrowser();
+      case 'install':
+        // Guided setup: companion tools → download all themes.
+        return runThemeBrowser();
+      case 'help':
+      case '-h':
+      case '--help':
+        printUsage();
+        return;
+      case 'version':
+      case '-v':
+      case '-V':
+      case '--version':
+        console.log(`theamify v${pkg.version}`);
+        return;
       case 'status':
         return runStatus();
       case 'doctor':

@@ -14,6 +14,7 @@ export const ENGINE_SCRIPT = path.join(VENDOR_DIR, 'theamify');
 export const SYSTEM_DIR = '/usr/local/share/theamify';
 export const USER_DIR = path.join(os.homedir(), '.local', 'share', 'theamify');
 export const BIN_NAME = 'theamify';
+/** Legacy self-shadowing symlink that used to point at the bundled bash engine. */
 export const USER_BIN_LINK = path.join(os.homedir(), '.local', 'bin', BIN_NAME);
 
 /**
@@ -28,50 +29,69 @@ export function findInstalledRuntime() {
 }
 
 /**
+ * Remove the legacy `~/.local/bin/theamify` symlink if it exists. It was created
+ * by old installs to point at the bundled bash engine, which SHADOWS the npm CLI
+ * (because `~/.local/bin` precedes the npm global bin on PATH — so `theamify`,
+ * `theamify uninstall`, `theamify doctor`, etc. silently ran the old engine).
+ * The npm package already installs `theamify -> bin/theamify.js` in the npm
+ * global bin, which is on PATH, so the symlink is unnecessary and harmful.
+ * Only ever removes a symlink — never a real file the user owns.
+ */
+export function removeShadowBin() {
+  try {
+    const st = fs.lstatSync(USER_BIN_LINK);
+    if (st.isSymbolicLink()) fs.rmSync(USER_BIN_LINK, { force: true });
+  } catch { /* nothing to remove */ }
+}
+
+/** Copy the vendored engine script + shared libs into a runtime dir. */
+function copyEngineTo(dir) {
+  fs.mkdirSync(path.join(dir, 'lib'), { recursive: true });
+  fs.copyFileSync(path.join(VENDOR_DIR, BIN_NAME), path.join(dir, BIN_NAME));
+  fs.chmodSync(path.join(dir, BIN_NAME), 0o755);
+  for (const lib of ['colors', 'utils', 'grub', 'themes']) {
+    fs.copyFileSync(path.join(VENDOR_DIR, 'lib', `${lib}.sh`), path.join(dir, 'lib', `${lib}.sh`));
+  }
+}
+
+/**
+ * Refreshes an existing installed runtime's engine script + libs to match the
+ * bundled package (so the disk engine is never a stale older version). User
+ * registry edits in config/themes.conf are preserved.
+ */
+function syncEngineTo(dir) {
+  const installed = path.join(dir, BIN_NAME);
+  const vendored = path.join(VENDOR_DIR, BIN_NAME);
+  try {
+    if (fs.existsSync(installed) && fs.readFileSync(installed, 'utf8') !== fs.readFileSync(vendored, 'utf8')) {
+      copyEngineTo(dir);
+    }
+  } catch {
+    copyEngineTo(dir);
+  }
+}
+
+/**
  * Provision a user-owned install of the engine under ~/.local/share/theamify so
  * it is writable without root (downloads write into themes/ and .repo_cache/).
- * Preserves an existing config/themes.conf (user registry edits). Returns the
+ * Preserves an existing config/themes.conf (user registry edits). Does NOT create
+ * a PATH shadow symlink — the npm global bin is already on PATH. Returns the
  * runtime dir.
  */
 export async function installUserRuntime() {
-  const { execaSync } = await import('execa');
-  fs.mkdirSync(path.join(USER_DIR, 'lib'), { recursive: true });
   fs.mkdirSync(path.join(USER_DIR, 'config'), { recursive: true });
   fs.mkdirSync(path.join(USER_DIR, 'themes'), { recursive: true });
   fs.mkdirSync(path.join(USER_DIR, '.repo_cache'), { recursive: true });
 
-  fs.copyFileSync(path.join(VENDOR_DIR, BIN_NAME), path.join(USER_DIR, BIN_NAME));
-  fs.chmodSync(path.join(USER_DIR, BIN_NAME), 0o755);
-  for (const lib of ['colors', 'utils', 'grub', 'themes']) {
-    fs.copyFileSync(path.join(VENDOR_DIR, 'lib', `${lib}.sh`), path.join(USER_DIR, 'lib', `${lib}.sh`));
-  }
+  copyEngineTo(USER_DIR);
   const confSrc = path.join(VENDOR_DIR, 'config', 'themes.conf');
   const confDst = path.join(USER_DIR, 'config', 'themes.conf');
   if (!fs.existsSync(confDst)) {
     fs.copyFileSync(confSrc, confDst);
   }
 
-  // The installed engine expects a wrapping bin symlink so `sudo theamify` works.
-  fs.mkdirSync(path.dirname(USER_BIN_LINK), { recursive: true });
-  fs.rmSync(USER_BIN_LINK, { force: true });
-  fs.symlinkSync(path.join(USER_DIR, BIN_NAME), USER_BIN_LINK);
-
-  // Ensure a PATH marker so the command is reachable from a fresh shell.
-  await ensureOnPath(path.dirname(USER_BIN_LINK));
+  removeShadowBin();
   return USER_DIR;
-}
-
-/** Add a PATH export marker to ~/.bashrc and ~/.zshrc (idempotent). */
-export function ensureOnPath(binDir) {
-  const marker = '# theamify CLI PATH';
-  const rcs = ['.bashrc', '.zshrc'].map((f) => path.join(os.homedir(), f));
-  for (const rc of rcs) {
-    try {
-      const content = fs.existsSync(rc) ? fs.readFileSync(rc, 'utf8') : '';
-      if (content.includes(marker)) continue;
-      fs.appendFileSync(rc, `\n${marker}\nexport PATH="${binDir}:$PATH"\n`);
-    } catch { /* skip */ }
-  }
 }
 
 /**
@@ -82,8 +102,13 @@ export function ensureOnPath(binDir) {
  */
 export async function resolveEngine() {
   const found = findInstalledRuntime();
-  if (found) return path.join(found.dir, BIN_NAME);
+  if (found) {
+    syncEngineTo(found.dir);
+    removeShadowBin();
+    return path.join(found.dir, BIN_NAME);
+  }
   const dir = await installUserRuntime();
+  removeShadowBin();
   return path.join(dir, BIN_NAME);
 }
 
