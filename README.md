@@ -85,11 +85,12 @@ theamify/
 ├── bin/theamify.js         # npm bin entry → src/cli.js
 ├── src/
 │   ├── cli.js              # command router + signal safety net
-│   ├── core/engine.js      # runtime provisioning & engine forwarding
-│   ├── commands/manage.js  # doctor / status / uninstall
-│   ├── wizard/browse.js    # interactive wizard (browse → preview → apply)
+│   ├── core/engine.js      # runtime provisioning, repair & engine forwarding
+│   ├── commands/manage.js  # doctor / status / upgrade / repair / uninstall
+│   ├── wizard/browse.js    # interactive wizard (self-check → browse → preview → apply)
 │   └── lib/
 │       ├── conf.js         # themes.conf registry parser
+│       ├── self.js         # version-check / self-update / self-uninstall / rc cleanup
 │       └── tools.js        # companion tools: chafa + grub-customizer
 ├── vendor/                 # bundled bash engine (theamify + lib/ + config/)
 ├── test/                   # unit tests (node:test)
