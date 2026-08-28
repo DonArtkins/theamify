@@ -42,7 +42,9 @@ ${pc.bold('Usage:')}
   theamify open <name>        Open the theme source page in a browser
   theamify status             Show GRUB & dependency status
   theamify doctor             Diagnose install, GRUB & dependencies
-  theamify uninstall          Remove theamify (asks before deleting anything)
+  theamify upgrade            Check for & install the latest npm version
+  theamify repair             Fix a broken install (re-provision the engine)
+  theamify uninstall          Remove theamify entirely (incl. npm package)
   theamify clean              Clear the repo clone cache
 `);
 }
