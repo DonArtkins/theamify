@@ -40,6 +40,13 @@ theamify help               # show all commands
 
 ---
 
+## ✨ What's New (v2.2.4 — command-not-found clarity)
+
+| Feature | Details |
+|---|---|
+| 💡 **Current-terminal hint** | After uninstall, `theamify` is fully deleted — a **new terminal** reports `bash: theamify: command not found`. If your *current* shell still says `No such file or directory`, that's bash's cached command path — clear it with `hash -r` |
+| 🗑️ **Still removes everything** | Every runtime, theme, GRUB theme, npm package, `~/.local/bin/theamify` shadow and PATH marker |
+
 ## ✨ What's New (v2.2.3 — complete uninstall)
 
 | Feature | Details |

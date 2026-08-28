@@ -209,4 +209,5 @@ export async function runUninstallWizard() {
     `Uninstalled.${removedCount ? ` ${removedCount} runtime tree(s) + all downloaded themes removed.` : ''} ${themeNote} ${npmRemoved ? 'theamify-cli npm package removed — the theamify command is gone.' : 'theamify-cli npm package could not be removed automatically — run: npm uninstall -g theamify-cli'} Companion tools (chafa, grub-customizer) were kept for your use.`,
   ));
   p.log.message(pc.dim('After uninstall, `theamify` reports: bash: theamify: command not found'));
+  p.log.message(pc.dim('If this terminal still shows "No such file or directory", clear bash\'s cached command path with: hash -r (or open a new terminal).'));
 }
