@@ -5,8 +5,10 @@ import pc from 'picocolors';
 import { execa, execaSync } from 'execa';
 import {
   findInstalledRuntime,
+  SYSTEM_DIR,
   USER_DIR,
-  removeShadowBin,
+  BIN_NAME,
+  removeUserBin,
   repairRuntime,
   resolveEngine,
 } from '../core/engine.js';
@@ -160,46 +162,51 @@ export async function resetGrubTheme({ grubFile = '/etc/default/grub', asRoot = 
   return res.exitCode === 0;
 }
 
-/** `theamify uninstall` — removes theamify, ALL downloaded themes, and resets GRUB to default. */
+/** `theamify uninstall` — remove EVERY trace of theamify so the command vanishes. */
 export async function runUninstallWizard() {
   p.intro(pc.bgRed(pc.black(' theamify Uninstaller ')));
-  const found = findInstalledRuntime();
-  if (!found) p.log.info('No installed theamify runtime found (nothing to remove).');
 
-  let removed = false;
-  if (found) {
-    const confirm = await p.confirm({
-      message: `Remove theamify files at ${found.dir}/? (this deletes ALL downloaded themes)`,
-      initialValue: true,
-    });
-    if (!p.isCancel(confirm) && confirm) {
-      removed = await removeRuntimeDir(found.dir);
-      if (removed) removeShadowBin();
-      else p.log.warn(`Could not remove ${found.dir}.`);
+  const found = findInstalledRuntime();
+  if (found) p.note(found.dir, 'Installed runtime detected');
+
+  const confirm = await p.confirm({
+    message: 'Uninstall theamify completely? This removes the runtime, ALL downloaded themes, the applied GRUB theme, the theamify-cli npm package, ~/.local/bin/theamify and every PATH marker.',
+    initialValue: true,
+  });
+  if (p.isCancel(confirm)) { p.cancel('Aborted.'); process.exit(0); }
+  if (!confirm) { p.outro('Nothing was removed.'); return; }
+
+  // 1. Remove EVERY runtime tree — user AND system. (removeRuntimeDir uses
+  //    sudo automatically for root-owned dirs like /usr/local/share/theamify.)
+  let removedCount = 0;
+  for (const dir of [SYSTEM_DIR, USER_DIR]) {
+    if (fs.existsSync(path.join(dir, BIN_NAME))) {
+      if (await removeRuntimeDir(dir)) removedCount++;
+      else p.log.warn(`Could not remove ${dir}.`);
     }
   }
 
-  // Reset the boot menu back to the default (remove the applied GRUB theme).
-  const resetGrub = await p.confirm({
-    message: 'Remove your applied GRUB theme and reset to the default boot menu?',
-    initialValue: true,
-  });
-  if (p.isCancel(resetGrub)) { p.cancel('Aborted.'); process.exit(0); }
-  const grubReset = resetGrub ? await resetGrubTheme() : false;
+  // 2. Remove any legacy `~/.local/bin/theamify` shadow — symlink OR real file.
+  //    This is what KEEPS the command alive when `~/.local/bin` is on PATH.
+  if (removeUserBin()) p.log.success('Removed ~/.local/bin/theamify.');
 
-  // Remove the npm package so the `theamify` command actually disappears.
+  // 3. Reset the boot menu back to the default (remove the applied GRUB theme).
+  const grubReset = await resetGrubTheme();
+
+  // 4. Remove the npm package so the `theamify` command truly disappears.
   const npmRemoved = await selfUninstall();
 
-  // Remove leftover PATH markers from ~/.bashrc / ~/.zshrc so zero traces remain.
+  // 5. Remove leftover PATH markers from ~/.bashrc / ~/.zshrc so zero traces remain.
   await cleanRcMarkers();
 
   // Companion tools (chafa, grub-customizer) are intentionally LEFT in place —
-  // the user may want them for later; uninstall only removes theamify itself.
+  // they are not theamify; uninstall only removes theamify itself.
   const themeNote = grubReset
     ? 'Boot menu reset to the default theme.'
-    : (resetGrub ? 'GRUB reset could not be completed — remove GRUB_THEME= from /etc/default/grub and rebuild.' : 'Your applied GRUB theme was left in place.');
+    : 'GRUB reset could not be completed — remove GRUB_THEME= from /etc/default/grub and rebuild.';
 
   p.outro(pc.green(
-    `Uninstalled.${removed ? ' Runtime + all downloaded themes removed.' : ''} ${themeNote} ${npmRemoved ? 'theamify npm package removed — command no longer available.' : 'theamify npm package kept.'} Companion tools (chafa, grub-customizer) were kept for your use.`,
+    `Uninstalled.${removedCount ? ` ${removedCount} runtime tree(s) + all downloaded themes removed.` : ''} ${themeNote} ${npmRemoved ? 'theamify-cli npm package removed — the theamify command is gone.' : 'theamify-cli npm package could not be removed automatically — run: npm uninstall -g theamify-cli'} Companion tools (chafa, grub-customizer) were kept for your use.`,
   ));
+  p.log.message(pc.dim('After uninstall, `theamify` reports: bash: theamify: command not found'));
 }

@@ -40,6 +40,15 @@ theamify help               # show all commands
 
 ---
 
+## ✨ What's New (v2.2.3 — complete uninstall)
+
+| Feature | Details |
+|---|---|
+| 🗑️ **Uninstall removes EVERYTHING** | `theamify uninstall` now removes **every** runtime tree (`~/.local/share/theamify` AND `/usr/local/share/theamify`), all downloaded themes, the applied GRUB theme, the `theamify-cli` npm package **and** `~/.local/bin/theamify` (legacy shadow, file or symlink) plus every PATH marker from `~/.bashrc`/`~/.zshrc` |
+| ✅ **`command not found` guaranteed** | After uninstall, `theamify` shadows nothing on PATH — typing it returns `bash: theamify: command not found`, exactly like any tool you never installed |
+| 🔒 **One confirmation** | A single confirmation covers the whole removal (no more piecemeal "keep the npm package?" prompts) |
+| 🩹 **Regression-tested** | `removeUserBin` (symlink + real-file shadow), runtime-tree removal and rc cleanup are all covered by tests |
+
 ## ✨ What's New (v2.2.2 — uninstall crash hotfix)
 
 | Feature | Details |

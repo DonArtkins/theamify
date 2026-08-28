@@ -44,6 +44,24 @@ export function removeShadowBin() {
   } catch { /* nothing to remove */ }
 }
 
+/**
+ * Remove anything at `~/.local/bin/theamify` — a legacy shadow executable that
+ * keeps the `theamify` command alive and SHADOWS the npm CLI after uninstall
+ * (because `~/.local/bin` precedes the npm global bin on PATH). Removes BOTH a
+ * symlink and a plain-file engine copy left behind by old installs.
+ * @param {string} [binPath] override the path (used by tests)
+ * @returns {boolean} true when something was removed
+ */
+export function removeUserBin(binPath = USER_BIN_LINK) {
+  try {
+    if (fs.existsSync(binPath) || fs.lstatSync(binPath)) {
+      fs.rmSync(binPath, { force: true });
+      return !fs.existsSync(binPath);
+    }
+  } catch { /* nothing to remove */ }
+  return false;
+}
+
 /** Copy the vendored engine script + shared libs into a runtime dir. */
 function copyEngineTo(dir) {
   fs.mkdirSync(path.join(dir, 'lib'), { recursive: true });

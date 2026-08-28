@@ -101,18 +101,12 @@ export async function promptSelfUpdate() {
 
 /**
  * Fully remove the npm package so the `theamify` command disappears from PATH.
+ * Uninstall is non-interactive about this — removing the npm package is a core
+ * part of "remove everything", not an optional extra.
  * @returns {Promise<boolean>} true when uninstalled
  */
 export async function selfUninstall() {
   const p = await import('@clack/prompts');
-  const want = await p.confirm({
-    message: `Also remove the ${NPM_NAME} npm package, so the ${pc.cyan(BIN_NAME)} command is gone from your system?`,
-    initialValue: true,
-  });
-  if (p.isCancel(want) || !want) {
-    p.log.message(pc.dim(`Keeping the npm package — the ${BIN_NAME} command will remain.`));
-    return false;
-  }
   console.log();
   const res = await execa('npm', ['uninstall', '-g', NPM_NAME], { stdio: 'inherit', reject: false });
   if (res.exitCode === 0) {
