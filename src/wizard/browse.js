@@ -124,6 +124,14 @@ async function ensureAllThemes(engine, { prompt = true } = {}) {
  * back to the theme list — it NEVER hard-exits until you choose Quit.
  */
 export async function runThemeBrowser() {
+  // Step 0: self-check — offer an update if a newer version is published, and
+  // repair a broken/unprovisioned runtime before anything else.
+  const { checkForUpdate, promptSelfUpdate } = await import('../lib/self.js');
+  const { repairRuntime } = await import('../core/engine.js');
+  const { outdated } = await checkForUpdate();
+  if (outdated) await promptSelfUpdate();
+  await repairRuntime();
+
   // Step 1: ensure companion tools (chafa, grub-customizer) — detect, install
   // or update, then continue BEFORE showing the theme picker.
   await ensureManagedTools();

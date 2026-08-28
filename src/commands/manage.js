@@ -7,10 +7,12 @@ import {
   findInstalledRuntime,
   USER_DIR,
   removeShadowBin,
+  repairRuntime,
   resolveEngine,
 } from '../core/engine.js';
 import { parseThemes, resolveConfPath } from '../lib/conf.js';
 import { companionToolStatus } from '../lib/tools.js';
+import { checkForUpdate, promptSelfUpdate, selfUninstall } from '../lib/self.js';
 
 /** `theamify doctor` — installation, GRUB and dependency health. */
 export async function runDoctor() {
@@ -78,6 +80,28 @@ export async function runStatus() {
   const engine = await resolveEngine();
   const res = await execa('bash', [engine, 'status'], { stdio: 'inherit', reject: false });
   if (res.exitCode !== 0) process.exit(res.exitCode);
+}
+
+/** `theamify upgrade` — self-update the npm CLI if a newer version is published. */
+export async function runSelfUpgrade() {
+  const { outdated, latest, current } = await checkForUpdate();
+  if (!outdated) {
+    console.log(pc.green(`Already on the latest version (v${current}).`));
+    return;
+  }
+  console.log(`Available: ${pc.cyan('v' + latest)}  (you have ${pc.dim('v' + current)})`);
+  await promptSelfUpdate();
+}
+
+/** `theamify repair` — fix a broken install by re-provisioning the engine/runtime. */
+export async function runRepair() {
+  console.log(pc.bold('\n🔧 theamify Repair\n'));
+  const engine = await repairRuntime();
+  console.log(`  Engine   : ${pc.cyan(engine)}`);
+  console.log(`  Runtime  : ${pc.cyan(path.join(USER_DIR))}`);
+  console.log('  Status   : ' + pc.green('engine re-provisioned'));
+  console.log('  Downloads: ' + (fs.existsSync(path.join(USER_DIR, 'themes')) ? pc.green('themes preserved') : pc.dim('no cached themes yet')));
+  console.log();
 }
 
 /**
@@ -163,6 +187,9 @@ export async function runUninstallWizard() {
   if (p.isCancel(resetGrub)) { p.cancel('Aborted.'); process.exit(0); }
   const grubReset = resetGrub ? await resetGrubTheme() : false;
 
+  // Remove the npm package so the `theamify` command actually disappears.
+  const npmRemoved = await selfUninstall();
+
   // Companion tools (chafa, grub-customizer) are intentionally LEFT in place —
   // the user may want them for later; uninstall only removes theamify itself.
   const themeNote = grubReset
@@ -170,6 +197,6 @@ export async function runUninstallWizard() {
     : (resetGrub ? 'GRUB reset could not be completed — remove GRUB_THEME= from /etc/default/grub and rebuild.' : 'Your applied GRUB theme was left in place.');
 
   p.outro(pc.green(
-    `Uninstalled.${removed ? ' Runtime + all downloaded themes removed.' : ''} ${themeNote} Companion tools (chafa, grub-customizer) were kept for your use.`,
+    `Uninstalled.${removed ? ' Runtime + all downloaded themes removed.' : ''} ${themeNote} ${npmRemoved ? 'theamify npm package removed — command no longer available.' : 'theamify npm package kept.'} Companion tools (chafa, grub-customizer) were kept for your use.`,
   ));
 }

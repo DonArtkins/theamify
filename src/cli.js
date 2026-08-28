@@ -2,7 +2,7 @@ import { defineCommand, runMain } from 'citty';
 import pc from 'picocolors';
 import { createRequire } from 'node:module';
 import { runThemeBrowser } from './wizard/browse.js';
-import { runDoctor, runStatus, runUninstallWizard } from './commands/manage.js';
+import { runDoctor, runStatus, runUninstallWizard, runSelfUpgrade, runRepair } from './commands/manage.js';
 import { updateManagedTools } from './lib/tools.js';
 import { runEngine } from './core/engine.js';
 
@@ -96,6 +96,12 @@ const main = defineCommand({
         return runStatus();
       case 'doctor':
         return runDoctor();
+      case 'upgrade':
+      case 'self-update':
+      case 'selfupdate':
+        return runSelfUpgrade();
+      case 'repair':
+        return runRepair();
       case 'uninstall':
         return runUninstallWizard();
       case 'update':

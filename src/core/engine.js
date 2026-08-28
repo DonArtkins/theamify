@@ -95,6 +95,24 @@ export async function installUserRuntime() {
 }
 
 /**
+ * Repair a broken install: re-provision the engine/runtime from the bundled
+ * package (fixes a missing/corrupt engine or runtime tree) and remove any stale
+ * shadow symlink. Downloads are preserved unless the whole runtime is missing.
+ * @returns {Promise<string>} path to the repaired engine
+ */
+export async function repairRuntime() {
+  const found = findInstalledRuntime();
+  if (found) {
+    syncEngineTo(found.dir);
+    removeShadowBin();
+    return path.join(found.dir, BIN_NAME);
+  }
+  const dir = await installUserRuntime();
+  removeShadowBin();
+  return path.join(dir, BIN_NAME);
+}
+
+/**
  * Resolve the path to the engine to run for a subcommand.
  * Prefers an installed runtime; otherwise provisions the bundled one in the
  * user share dir (so downloads are writable) and returns that.
