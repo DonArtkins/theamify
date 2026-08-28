@@ -2,6 +2,7 @@ import * as p from '@clack/prompts';
 import pc from 'picocolors';
 import fs from 'node:fs';
 import path from 'node:path';
+import { execa } from 'execa';
 import { parseThemes, resolveConfPath } from '../lib/conf.js';
 import { ensureManagedTools } from '../lib/tools.js';
 import { resolveEngine, USER_DIR } from '../core/engine.js';
@@ -35,6 +36,11 @@ const statusColor = (status) => ({
   remote: pc.dim,
 }[status] || pc.dim);
 
+/** True when a theme has been downloaded into the local user cache. */
+function isCached(name) {
+  return fs.existsSync(path.join(USER_THEMES, name));
+}
+
 /**
  * Render a terminal "thumbnail" preview of a cached theme via chafa (or any
  * terminal image renderer the user has). Silently nops when unsatisfiable.
@@ -50,7 +56,6 @@ export async function showThemePreview({ name, width = 40, height = 12 }) {
     .sort()[0];
   if (!image) return false;
 
-  const { execa } = await import('execa');
   for (const tool of ['chafa', 'timg', 'viu', 'jp2a']) {
     const args = tool === 'chafa'
       ? ['--size', `${width}x${height}`, image]
@@ -63,104 +68,130 @@ export async function showThemePreview({ name, width = 40, height = 12 }) {
       }
     } catch { /* try next */ }
   }
-  p.log.message(pc.dim('Install `chafa` (: sudo apt install chafa) for terminal theme previews.'));
+  p.log.message(pc.dim('Install `chafa` (sudo apt install chafa) for terminal theme previews.'));
   return false;
 }
 
-/** Interactive GRUB-theme browser wizard (mirrors GitSwitch's look & feel). */
+/**
+ * Make sure a theme is present in the local cache, downloading on demand.
+ * @returns {Promise<boolean>} true when the theme is cached (ready to preview/apply)
+ */
+async function ensureCached(engine, name) {
+  if (isCached(name)) return true;
+  p.log.warn(`${name} isn't downloaded yet. Fetching first…`);
+  const s = p.spinner();
+  s.start(`Downloading ${name}…`);
+  try {
+    await execa('bash', [engine, 'get', name], { stdio: 'inherit', reject: true });
+    s.stop(pc.green(`Downloaded ${name}.`));
+    return true;
+  } catch (e) {
+    s.stop(pc.red(`Download failed: ${e.message}`));
+    return false;
+  }
+}
+
+/**
+ * Interactive GRUB-theme browser wizard (mirrors GitSwitch's look & feel).
+ * Stays in a menu loop: pick a theme → preview / download / apply / open →
+ * back to the theme list — it NEVER hard-exits until you choose Quit.
+ */
 export async function runThemeBrowser() {
   // Step 1: ensure companion tools (chafa, grub-customizer) — detect, install
   // or update, then continue BEFORE showing the theme picker.
   await ensureManagedTools();
 
-  const themes = parseThemes(resolveConfPath());
-  const active = activeTheme();
-
-  const selected = await p.select({
-    message: pc.bold('Pick a GRUB theme'),
-    options: themes.map((t) => {
-      const status = themeStatus(t.name);
-      const color = statusColor(status);
-      return {
-        value: t,
-        label: `${t.name}  ${color(`[${status.toUpperCase()}]`)}${t.name === active ? '  ⭐' : ''}`,
-        hint: t.tags.slice(0, 3).join(', '),
-      };
-    }),
-  });
-  if (p.isCancel(selected)) { p.cancel('Bye! 👋'); process.exit(0); }
-
-  p.log.step(`${pc.bold(selected.name)} — ${selected.desc}`);
-  p.log.message(pc.dim(selected.url));
-
-  if (fs.existsSync(path.join(USER_THEMES, selected.name))) {
-    await showThemePreview({ name: selected.name });
-  }
-
-  const action = await p.select({
-    message: `What do you want to do with ${pc.cyan(selected.name)}?`,
-    options: [
-      { value: 'preview', label: 'Show terminal thumbnail preview', hint: 'requires chafa + cached theme' },
-      { value: 'get', label: 'Download / update it', hint: 'git clone into local cache' },
-      { value: 'use', label: 'Apply to GRUB', hint: 'needs sudo; rebuilds GRUB' },
-      { value: 'open', label: 'Open source page in browser' },
-      { value: 'back', label: 'Cancel' },
-    ],
-  });
-  if (p.isCancel(action) || action === 'back') { p.outro('Bye! 👋'); process.exit(0); }
-
   const engine = await resolveEngine();
-  const { execa } = await import('execa');
+  let quit = false;
 
-  if (action === 'preview') {
-    await showThemePreview({ name: selected.name, width: 80, height: 20 });
-    p.outro(pc.green('Preview above.'));
-  } else if (action === 'get') {
-    const s = p.spinner();
-    s.start(`Downloading ${selected.name}…`);
-    try {
-      await execa('bash', [engine, 'get', selected.name], { stdio: 'inherit', reject: true });
-      s.stop(pc.green(`Downloaded ${selected.name}.`));
-    } catch (e) {
-      s.stop(pc.red(`Download failed: ${e.message}`));
+  while (!quit) {
+    const themes = parseThemes(resolveConfPath());
+    const active = activeTheme();
+
+    const picked = await p.select({
+      message: pc.bold('Pick a GRUB theme'),
+      options: themes.map((t) => {
+        const status = themeStatus(t.name);
+        const color = statusColor(status);
+        return {
+          value: t,
+          label: `${t.name}  ${color(`[${status.toUpperCase()}]`)}${t.name === active ? '  ⭐' : ''}`,
+          hint: (isCached(t.name) ? '🖼 ' : '') + t.tags.slice(0, 3).join(', '),
+        };
+      }),
+    });
+    if (p.isCancel(picked)) { quit = true; break; }
+
+    p.log.step(`${pc.bold(picked.name)} — ${picked.desc}`);
+    p.log.message(pc.dim(picked.url));
+
+    // Thumbnails render by default: show the preview whenever the theme is
+    // cached, otherwise point the user at Download to unlock it.
+    const cached = isCached(picked.name);
+    if (cached) {
+      await showThemePreview({ name: picked.name });
+    } else {
+      p.log.message(pc.dim('Not cached yet — choose “Download / update it” below to preview it.'));
     }
-  } else if (action === 'use') {
-    await runUse(engine, selected.name);
-  } else if (action === 'open') {
-    await execa('bash', [engine, 'open', selected.name], { stdio: 'inherit', reject: false });
+
+    // Per-theme action loop: runs until the user goes back to the list or quits.
+    let backToMenu = false;
+    while (!quit && !backToMenu) {
+      const action = await p.select({
+        message: `What do you want to do with ${pc.cyan(picked.name)}?`,
+        options: [
+          { value: 'preview', label: 'Preview terminal thumbnail', hint: cached ? 'renders below' : 'downloads first' },
+          { value: 'get', label: 'Download / update it', hint: 'git clone into local cache' },
+          { value: 'use', label: 'Apply to GRUB', hint: 'needs sudo; rebuilds GRUB' },
+          { value: 'open', label: 'Open source page in browser' },
+          { value: 'menu', label: '← Back to theme list' },
+          { value: 'quit', label: 'Quit browser' },
+        ],
+      });
+
+      if (p.isCancel(action) || action === 'quit') { quit = true; break; }
+      if (action === 'menu') { backToMenu = true; break; }
+
+      if (action === 'preview') {
+        if (await ensureCached(engine, picked.name)) {
+          await showThemePreview({ name: picked.name, width: 80, height: 22 });
+        }
+      } else if (action === 'get') {
+        await ensureCached(engine, picked.name);
+      } else if (action === 'use') {
+        await runUse(engine, picked.name);
+      } else if (action === 'open') {
+        await execa('bash', [engine, 'open', picked.name], { stdio: 'inherit', reject: false });
+      }
+    }
   }
+
+  p.outro(pc.cyan('Bye! 👋'));
 }
 
-/** Apply a theme to GRUB, re-invoking with sudo, spinner released for the prompt. */
+/**
+ * Apply a theme to GRUB, re-invoking with sudo, spinner released for the prompt.
+ * Returns true when the apply was attempted/succeeded (false if aborted).
+ */
 export async function runUse(engine, name) {
-  const cached = path.join(USER_THEMES, name);
-  if (!fs.existsSync(cached)) {
-    p.log.warn(`${name} isn't downloaded yet. Fetching first…`);
-    const s = p.spinner();
-    s.start(`Downloading ${name}…`);
-    try {
-      await execa('bash', [engine, 'get', name], { stdio: 'inherit', reject: true });
-      s.stop();
-    } catch (e) {
-      s.stop(pc.red(`Download failed: ${e.message}`));
-      return;
-    }
-  }
+  if (!(await ensureCached(engine, name))) { p.cancel('Aborted — theme not downloaded.'); return false; }
 
   const confirmApply = await p.confirm({ message: `Apply ${pc.cyan(name)} to GRUB and rebuild? (sudo)`, initialValue: true });
-  if (p.isCancel(confirmApply) || !confirmApply) { p.outro('Skipped.'); return; }
+  if (p.isCancel(confirmApply) || !confirmApply) {
+    p.log.message(pc.dim('Skipped — theme not applied.'));
+    return false;
+  }
 
-  const { execa } = await import('execa');
   if (process.getuid() !== 0) {
     // Release spinner, then prompt sudo on a clean terminal so Ctrl+C works.
     console.log();
     const res = await execa('sudo', ['bash', engine, 'use', name], { stdio: 'inherit', reject: false });
-    return res.exitCode === 0
-      ? p.outro(pc.green(`${name} is now your GRUB theme! 🎉`))
-      : p.cancel('GRUB apply failed.');
+    if (res.exitCode === 0) { p.log.success(`${name} is now your GRUB theme! 🎉`); return true; }
+    p.cancel('GRUB apply failed.');
+    return false;
   }
   const res = await execa('bash', [engine, 'use', name], { stdio: 'inherit', reject: false });
-  res.exitCode === 0
-    ? p.outro(pc.green(`${name} is now your GRUB theme! 🎉`))
-    : p.cancel('GRUB apply failed.');
+  if (res.exitCode === 0) { p.log.success(`${name} is now your GRUB theme! 🎉`); return true; }
+  p.cancel('GRUB apply failed.');
+  return false;
 }

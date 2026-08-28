@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
-import { execa } from 'execa';
+import { execa, execaSync } from 'execa';
 import {
   findInstalledRuntime,
   USER_DIR,
@@ -50,7 +50,7 @@ export async function runDoctor() {
 }
 
 function which(bin) {
-  try { return execa.sync('which', [bin], { reject: false }).stdout.trim(); } catch { return ''; }
+  try { return execaSync('which', [bin], { reject: false }).stdout.trim(); } catch { return ''; }
 }
 
 function grubDetectDir() {
