@@ -31,6 +31,33 @@ export async function getLatestVersion() {
 }
 
 /**
+ * Remove any leftover `# theamify CLI PATH` + follow-up `export PATH=` line from
+ * ~/.bashrc and ~/.zshrc (added by old installs). Called by uninstall so no
+ * traces of the tool remain in shell startup files.
+ */
+export async function cleanRcMarkers() {
+  const rcs = ['.bashrc', '.zshrc'].map((f) => path.join(require('node:os').homedir(), f));
+  const marker = '# theamify CLI PATH';
+  for (const rc of rcs) {
+    try {
+      const fs = require('node:fs');
+      if (!fs.existsSync(rc)) continue;
+      const lines = fs.readFileSync(rc, 'utf8').split('\n');
+      const out = [];
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes(marker)) {
+          // Also drop the immediately-following `export PATH=` line.
+          if (lines[i + 1] && /^\s*export PATH=/.test(lines[i + 1])) i++;
+          continue;
+        }
+        out.push(lines[i]);
+      }
+      fs.writeFileSync(rc, out.join('\n'));
+    } catch { /* rc not writable — skip */ }
+  }
+}
+
+/**
  * Check whether the running local version is behind the latest published one.
  * @returns {Promise<{outdated:boolean, latest:string|null, current:string}>}
  */

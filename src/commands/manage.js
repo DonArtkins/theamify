@@ -12,7 +12,7 @@ import {
 } from '../core/engine.js';
 import { parseThemes, resolveConfPath } from '../lib/conf.js';
 import { companionToolStatus } from '../lib/tools.js';
-import { checkForUpdate, promptSelfUpdate, selfUninstall } from '../lib/self.js';
+import { checkForUpdate, promptSelfUpdate, selfUninstall, cleanRcMarkers } from '../lib/self.js';
 
 /** `theamify doctor` — installation, GRUB and dependency health. */
 export async function runDoctor() {
@@ -189,6 +189,9 @@ export async function runUninstallWizard() {
 
   // Remove the npm package so the `theamify` command actually disappears.
   const npmRemoved = await selfUninstall();
+
+  // Remove leftover PATH markers from ~/.bashrc / ~/.zshrc so zero traces remain.
+  await cleanRcMarkers();
 
   // Companion tools (chafa, grub-customizer) are intentionally LEFT in place —
   // the user may want them for later; uninstall only removes theamify itself.
