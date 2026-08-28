@@ -40,6 +40,13 @@ theamify help               # show all commands
 
 ---
 
+## ✨ What's New (v2.2.5 — doc refresh & command parity)
+
+| Feature | Details |
+|---|---|
+| 📖 **README synced** | Every command + alias documented and verified against the live CLI: `list`/`ls`, `info`/`show`, `get`/`fetch`/`download`, `use`/`apply`/`set`, `remove`/`rm`/`uncache`, `add`/`del`/`delete`, `update`, `open`, `status`, `doctor`, `upgrade`/`self-update`, `repair`, `browse`/`wizard`/`install`, `uninstall`, `clean`/`purge-cache`, `version`, `help` |
+| 🗑️ **Uninstall contract** | After `theamify uninstall`, `theamify` reports `command not found` (new terminal) — clear the current shell's cache with `hash -r` |
+
 ## ✨ What's New (v2.2.4 — command-not-found clarity)
 
 | Feature | Details |
