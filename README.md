@@ -16,15 +16,18 @@ npm install -g theamify-cli
 The `-g` flag puts the `theamify` command on your system `PATH` (or provisions a user-local runtime under `~/.local/share/theamify`), so you can call it from **any folder and any terminal**:
 
 ```bash
-theamify                    # ✨ interactive wizard (detects tools → browse → preview → apply)
+theamify                    # ✨ interactive wizard (self-check → tools → download → browse → apply)
 theamify list               # list all themes with status
 theamify info <name>        # details + terminal preview
 theamify get <name>         # download & cache a theme
+theamify get --all          # download every theme up front
 sudo theamify use <name>    # apply to GRUB + rebuild
 theamify update             # update tools (chafa, grub-customizer) + re-download themes
 theamify status             # GRUB & dependency status
 theamify doctor             # diagnose install, GRUB, tools & dependencies
-theamify uninstall          # remove only theamify (keeps chafa & grub-customizer)
+theamify upgrade            # check for & install the latest npm version
+theamify repair             # fix a broken install (re-provision the engine)
+theamify uninstall          # remove theamify entirely (incl. npm package)
 ```
 
 > 💡 Upgrading is the same command — `npm install -g theamify-cli@latest`, and your downloaded themes & registry edits are preserved.  
@@ -43,19 +46,22 @@ theamify uninstall          # remove only theamify (keeps chafa & grub-customize
 | 🩺 **`theamify doctor`** | Diagnose install, GRUB, active theme, registry, tools & dependencies |
 | 🗑 **Safe uninstall** | Removes **only theamify** — leaves chafa & grub-customizer for later use |
 | ⌨️ **Ctrl+C / Ctrl+Z safe** | Signal safety net; interactive `sudo` is never frozen |
+| 🔄 **Self-manage (v2.2+)** | `upgrade`, `repair`, auto-update check on every wizard run |
 
 ---
 
 ## 🧭 Wizard Sequence (every `theamify` run)
 
-1. **Detect companion tools** — `chafa` then `grub-customizer`. For each:  
+1. **Self-check** — checks npm for a newer `theamify-cli`; offers to update if found. Also self-repairs the engine/runtime.
+2. **Detect companion tools** — `chafa` then `grub-customizer`. For each:  
    - **Already installed?** → *“Update it now? (or just continue)”* — Continue moves on.  
    - **Missing?** → *“Install `<name>`? Yes/No”* → installs via your package manager (`sudo`), then continues.  
-2. **Show the theme picker** — every registry theme with status (`[REMOTE]`/`[CACHED]`/`[ACTIVE]`).
-3. **Pick a theme** → optional **terminal thumbnail preview** (needs `chafa`).
-4. **Act** — download, apply to GRUB, or open in browser.
+3. **Download all themes** — asks *“Download all themes now?”* (default Yes) → fetches the whole registry so every theme is instantly previewable/applicable.
+4. **Show the theme picker** — every registry theme with status (`[REMOTE]`/`[CACHED]`/`[ACTIVE]`).
+5. **Pick a theme** → the **terminal thumbnail renders automatically** below the selection (no separate “preview” menu item).
+6. **Act** — download/update, apply to GRUB, or open in browser. Choose `← Back to theme list` to keep browsing (the wizard never hard-exits until you pick **Quit**).
 
-> Companion tools are installed strictly **before** the browser, so previews are ready when you need them.
+> Companion tools and themes are ready **before** the browser, so thumbnails & applies are instant when you need them.
 
 ---
 
@@ -122,7 +128,10 @@ The wizard manages two companion tools as first-class:
 - **Detect** → if present, offer to update; if absent, install (with your consent).  
 - **Continue** regardless of Yes/No — the wizard proceeds to the theme picker.  
 - **`theamify update`** updates tools then re-downloads themes.
-- **`theamify uninstall`** removes **only** theamify — chafa and grub-customizer stay on the system for later use.
+- **`theamify uninstall`** removes **everything theamify owns**: the runtime + all downloaded themes, resets GRUB to the default boot menu, removes the `theamify-cli` npm package, and strips leftover PATH markers from `~/.bashrc` / `~/.zshrc`. Companion tools **chafa** and **grub-customizer** stay on the system for later use — run the command after that and you get a normal `command not found`.
+- **`theamify upgrade`** checks the npm registry and, if a newer version exists, offers to `npm install -g theamify-cli@latest`.
+- **`theamify repair`** re-provisions the engine from the bundled package — the fix for a broken/missing install.
+- Every `theamify` (wizard) run also **auto-checks for updates** and **self-repairs** before showing the theme picker.
 
 ---
 
