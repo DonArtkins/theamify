@@ -81,13 +81,31 @@ export async function runStatus() {
 }
 
 /**
- * Remove GRUB_THEME from /etc/default/grub and rebuild the boot menu so the
- * system returns to the default theme. Requires sudo when not root.
- * @returns {Promise<boolean>} true when GRUB was reset
+ * Remove a theamify runtime directory and everything in it (the engine PLUS all
+ * downloaded themes under themes/ and .repo_cache/). Uses sudo when the dir is
+ * root-owned.
+ * @param {string} dir absolute path to the runtime dir
+ * @returns {Promise<boolean>} true when the dir no longer exists
  */
-async function resetGrubTheme() {
-  const script = `
-GRUB=/etc/default/grub
+export async function removeRuntimeDir(dir) {
+  if (!fs.existsSync(dir)) return true;
+  try {
+    const owner = fs.statSync(dir).uid;
+    if (owner === 0 && process.getuid() !== 0) {
+      const res = await execa('sudo', ['rm', '-rf', dir], { stdio: 'inherit', reject: false });
+      return res.exitCode === 0 && !fs.existsSync(dir);
+    }
+    fs.rmSync(dir, { recursive: true, force: true });
+    return !fs.existsSync(dir);
+  } catch {
+    return false;
+  }
+}
+
+/** Build the bash script that clears GRUB_THEME and rebuilds the boot menu. */
+export function buildResetGrubScript(grubFile = '/etc/default/grub') {
+  return `
+GRUB=${grubFile}
 [ -f "$GRUB" ] || exit 0
 sed -i '/^GRUB_THEME=/d' "$GRUB"
 if command -v update-grub >/dev/null 2>&1; then
@@ -98,7 +116,17 @@ elif command -v grub2-mkconfig >/dev/null 2>&1; then
   grub2-mkconfig -o /boot/grub2/grub.cfg
 fi
 `.trim();
-  if (process.getuid() === 0) {
+}
+
+/**
+ * Remove GRUB_THEME from /etc/default/grub and rebuild the boot menu so the
+ * system returns to the default theme. Requires sudo when not root.
+ * @param {{grubFile?:string, asRoot?:boolean}} [opts] injectable for tests
+ * @returns {Promise<boolean>} true when GRUB was reset
+ */
+export async function resetGrubTheme({ grubFile = '/etc/default/grub', asRoot = process.getuid() === 0 } = {}) {
+  const script = buildResetGrubScript(grubFile);
+  if (asRoot) {
     const res = await execa('bash', ['-c', script], { stdio: 'inherit', reject: false });
     return res.exitCode === 0;
   }
@@ -121,19 +149,9 @@ export async function runUninstallWizard() {
       initialValue: true,
     });
     if (!p.isCancel(confirm) && confirm) {
-      try {
-        const dir = found.dir;
-        const owner = fs.statSync(dir).uid;
-        if (owner === 0 && process.getuid() !== 0) {
-          await execa('sudo', ['rm', '-rf', dir], { stdio: 'inherit' });
-        } else {
-          fs.rmSync(dir, { recursive: true, force: true });
-        }
-        removed = true;
-        removeShadowBin();
-      } catch {
-        p.log.warn(`Could not remove ${found.dir}.`);
-      }
+      removed = await removeRuntimeDir(found.dir);
+      if (removed) removeShadowBin();
+      else p.log.warn(`Could not remove ${found.dir}.`);
     }
   }
 
