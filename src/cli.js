@@ -2,8 +2,7 @@ import { defineCommand, runMain } from 'citty';
 import pc from 'picocolors';
 import { createRequire } from 'node:module';
 import { runThemeBrowser } from './wizard/browse.js';
-import { runDoctor, runStatus, runUninstallWizard, runSelfUpgrade, runRepair } from './commands/manage.js';
-import { updateManagedTools } from './lib/tools.js';
+import { runDoctor, runStatus, runUninstallWizard, runSelfUpgrade, runRepair, runFullUpdate } from './commands/manage.js';
 import { runEngine } from './core/engine.js';
 
 const require = createRequire(import.meta.url);
@@ -35,7 +34,7 @@ ${pc.bold('Usage:')}
   theamify get <name>         Download & cache a theme
   theamify get --all          Download every theme
   theamify use <name>         Apply theme to GRUB ${pc.dim('[sudo]')}
-  theamify update [<name>]    Re-download cached themes
+  theamify update [<name>]    Update from npm, then tools + re-download themes
   theamify remove <name>      Clear local cache (keeps registry entry)
   theamify add <github-url>   Add a theme to the registry
   theamify del <name>         Remove a theme from the registry
@@ -72,6 +71,14 @@ const main = defineCommand({
   },
   async run({ args }) {
     const [cmd, ...rest] = args._;
+
+    // theamify configures GRUB, which only exists on Linux. Refuse other OSes
+    // up-front with a clear message instead of failing halfway through.
+    if (process.platform !== 'linux') {
+      console.error(pc.red('theamify is Linux-only: it manages GRUB boot themes, and GRUB does not exist on this OS.'));
+      process.exitCode = 1;
+      return undefined;
+    }
 
     // citty parses `-V` as a boolean flag into args.V (never reached via args._);
     // treat it as a version request like the other aliases.
@@ -114,10 +121,8 @@ const main = defineCommand({
       case 'uninstall':
         return runUninstallWizard();
       case 'update':
-        // Self-update path: refresh companion tools (chafa, grub-customizer),
-        // then forward theme re-downloads to the engine.
-        await updateManagedTools();
-        return forwardEngine(['update', ...rest]);
+        // Full update: pull the latest CLI from npm, then update tools + themes.
+        return runFullUpdate(rest);
       case 'use':
       case 'apply':
       case 'set':

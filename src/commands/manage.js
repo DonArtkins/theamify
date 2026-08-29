@@ -85,6 +85,7 @@ export async function runStatus() {
 }
 
 /** `theamify upgrade` — self-update the npm CLI if a newer version is published. */
+/** `theamify upgrade` — check for & install the latest npm version. */
 export async function runSelfUpgrade() {
   const { outdated, latest, current } = await checkForUpdate();
   if (!outdated) {
@@ -93,6 +94,34 @@ export async function runSelfUpgrade() {
   }
   console.log(`Available: ${pc.cyan('v' + latest)}  (you have ${pc.dim('v' + current)})`);
   await promptSelfUpdate();
+}
+
+/**
+ * `theamify update` — bring EVERYTHING up to date, exactly like gitswitch's
+ * `update`:
+ *   1. Pull the latest npm CLI from the registry (prompts, defaults to yes).
+ *   2. Then refresh companion tools (chafa, grub-customizer).
+ *   3. Then re-download all cached themes.
+ * @param {string[]} rest forwarded theme args (e.g. a single theme name)
+ */
+export async function runFullUpdate(rest = []) {
+  const { outdated, latest, current } = await checkForUpdate();
+  if (outdated) {
+    console.log(pc.cyan(`A newer version (v${latest}) is published — you have v${current}.`));
+    const updated = await promptSelfUpdate();
+    if (updated) {
+      console.log(pc.yellow('theamify CLI updated. Re-run `theamify update` (or just `theamify`) to continue updating tools & themes.'));
+      return;
+    }
+    console.log(pc.dim('Continuing — keeping current CLI version.'));
+  } else {
+    console.log(pc.green(`theamify CLI is on the latest version (v${current}).`));
+  }
+
+  const { updateManagedTools } = await import('../lib/tools.js');
+  await updateManagedTools();
+  const { runEngine } = await import('../core/engine.js');
+  await runEngine(['update', ...rest]);
 }
 
 /** `theamify repair` — fix a broken install by re-provisioning the engine/runtime. */

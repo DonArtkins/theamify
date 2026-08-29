@@ -22,7 +22,7 @@ theamify info <name>        # details + terminal preview
 theamify get <name>         # download & cache a theme
 theamify get --all          # download every theme up front
 sudo theamify use <name>    # apply to GRUB + rebuild
-theamify update             # update tools (chafa, grub-customizer) + re-download themes
+theamify update             # update from npm, then update tools + re-download themes
 theamify status             # GRUB & dependency status
 theamify doctor             # diagnose install, GRUB, tools & dependencies
 theamify upgrade            # check for & install the latest npm version
@@ -39,6 +39,14 @@ theamify help               # show all commands
 > 🧰 Zero-install run (no permanent install): `npx -y theamify-cli`
 
 ---
+
+## ✨ What's New (v2.3.0 — update from npm & Linux-only)
+
+| Feature | Details |
+|---|---|
+| 🔄 **`theamify update` pulls from npm** | `theamify update` first checks the registry and offers to `npm install -g theamify-cli@latest`, *then* refreshes companion tools (chafa, grub-customizer) and re-downloads themes — matching `gitswitch update` |
+| 🐧 **Linux-only by design** | theamify configures **GRUB**, which only exists on Linux. On other OSes the CLI refuses immediately with a clear message instead of failing halfway |
+| 🧭 **Cross-platform CI** | CI matrices + documentation updated across all three CLI packages |
 
 ## ✨ What's New (v2.2.5 — doc refresh & command parity)
 
